@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { CommunityProvider } from '@/lib/community-context';
+import { Toaster } from '@/components/ui/sonner';
 import { Inter } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -24,6 +25,7 @@ export default function RootLayout({
           <AuthProvider>
             <CommunityProvider>
               {children}
+              <Toaster />
             </CommunityProvider>
           </AuthProvider>
         </ThemeProvider>
