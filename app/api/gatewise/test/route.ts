@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (error.cause?.code === 'ENOTFOUND' || error.message.includes('fetch failed')) {
+    if (error.cause?.code === 'ENOTFOUND') {
       return NextResponse.json(
         {
           success: false,
