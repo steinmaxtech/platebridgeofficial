@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 220 13% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 13%;
+    --primary: 214 100% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 62% 55%;
+    --secondary-foreground: 220 13% 13%;
+    --muted: 210 25% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 100% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 88%;
+    --input: 214 32% 91%;
+    --ring: 214 100% 52%;
+    --chart-1: 214 100% 52%;
+    --chart-2: 180 62% 55%;
+    --chart-3: 210 40% 60%;
+    --chart-4: 226 80% 70%;
+    --chart-5: 180 50% 70%;
+    --radius: 0.75rem;
+  }
+  .dark {
+    --background: 220 26% 14%;
+    --foreground: 0 0% 98%;
+    --card: 220 20% 18%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 20% 18%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 214 100% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 62% 55%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 217 33% 22%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 214 100% 52%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 214 100% 52%;
+    --chart-1: 214 100% 52%;
+    --chart-2: 180 62% 55%;
+    --chart-3: 210 40% 60%;
+    --chart-4: 226 80% 70%;
+    --chart-5: 180 50% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
