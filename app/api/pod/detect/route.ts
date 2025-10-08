@@ -3,8 +3,67 @@ import { supabaseServer } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
+async function hashApiKey(apiKey: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(apiKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+async function verifyApiKey(authHeader: string | null): Promise<{ valid: boolean; site_id?: string; pod_id?: string }> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { valid: false };
+  }
+
+  const apiKey = authHeader.substring(7);
+
+  if (!apiKey.startsWith('pbk_')) {
+    return { valid: false };
+  }
+
+  try {
+    const keyHash = await hashApiKey(apiKey);
+
+    const { data: keyData, error } = await supabaseServer
+      .from('pod_api_keys')
+      .select('site_id, pod_id, revoked_at')
+      .eq('key_hash', keyHash)
+      .maybeSingle();
+
+    if (error || !keyData || keyData.revoked_at) {
+      return { valid: false };
+    }
+
+    await supabaseServer
+      .from('pod_api_keys')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('key_hash', keyHash);
+
+    return {
+      valid: true,
+      site_id: keyData.site_id,
+      pod_id: keyData.pod_id,
+    };
+  } catch (error) {
+    console.error('[API Key Verification] Error:', error);
+    return { valid: false };
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get('Authorization');
+    const keyVerification = await verifyApiKey(authHeader);
+
+    if (!keyVerification.valid) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid or missing API key', action: 'deny' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { site_id, plate, camera, pod_name } = body;
 

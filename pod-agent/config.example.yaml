@@ -1,0 +1,24 @@
+# PlateBridge Pod Agent Configuration
+# Copy this file to config.yaml and fill in your values
+
+# Portal Configuration (Your Cloud Dashboard)
+portal_url: "https://your-platebridge-portal.vercel.app"
+api_key: "your-api-key-here"
+
+# Pod/Site Identification
+site_id: "your-site-id-here"
+pod_id: "pod-front-gate"
+
+# Frigate MQTT Configuration
+frigate_mqtt_host: "localhost"
+frigate_mqtt_port: 1883
+frigate_mqtt_username: ""
+frigate_mqtt_password: ""
+frigate_mqtt_topic: "frigate/events"
+
+# Detection Settings
+min_confidence: 0.7
+whitelist_refresh_interval: 300
+
+# Logging
+log_level: "INFO"
