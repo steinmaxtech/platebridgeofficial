@@ -162,26 +162,20 @@ export default function SettingsPage() {
   };
 
   const handleTestConnection = async () => {
-    console.log('Test connection clicked');
-
     if (!gatewiseConfig.api_key.trim()) {
-      console.log('No API key');
       toast.error('Please enter an API key first');
       return;
     }
 
     if (!gatewiseConfig.api_endpoint.trim()) {
-      console.log('No API endpoint');
       toast.error('Please enter an API endpoint');
       return;
     }
 
-    console.log('Starting test...');
     setTesting(true);
     toast.info('Testing Gatewise connection...');
 
     try {
-      console.log('Fetching API...');
       const response = await fetch('/api/gatewise/test', {
         method: 'POST',
         headers: {
@@ -193,20 +187,18 @@ export default function SettingsPage() {
         }),
       });
 
-      console.log('Response received:', response.status);
       const result = await response.json();
-      console.log('Result:', result);
 
       if (result.success) {
         toast.success('Connection successful! Gatewise API is reachable.');
+      } else if (result.partial_success) {
+        toast.success('API endpoint is reachable! Configuration looks good.');
       } else {
         toast.error(result.message || 'Connection failed');
       }
     } catch (error: any) {
-      console.error('Error during test:', error);
       toast.error(`Connection test failed: ${error.message}`);
     } finally {
-      console.log('Test complete');
       setTesting(false);
     }
   };
