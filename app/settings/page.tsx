@@ -130,8 +130,11 @@ export default function SettingsPage() {
 
   const fetchPodApiKeys = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error('No session available:', sessionError);
+        return;
+      }
 
       const response = await fetch('/api/pod/api-keys', {
         headers: {
@@ -142,6 +145,8 @@ export default function SettingsPage() {
       if (response.ok) {
         const result = await response.json();
         setPodApiKeys(result.keys || []);
+      } else {
+        console.error('Failed to fetch API keys:', response.status);
       }
     } catch (error) {
       console.error('Error fetching API keys:', error);
