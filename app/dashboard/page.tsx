@@ -8,7 +8,7 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/lib/supabase';
-import { Activity, Wifi, Camera, Car, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Activity, Wifi, Camera, Car, CheckCircle2, AlertCircle, XCircle, RefreshCw } from 'lucide-react';
 import { AnimatedCard, FadeIn, SlideIn } from '@/components/animated-card';
 
 interface SystemMetrics {
@@ -55,6 +55,7 @@ export default function DashboardPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [gatewiseHealth, setGatewiseHealth] = useState<GatewiseHealth | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -213,6 +214,15 @@ export default function DashboardPage() {
     return date.toLocaleDateString();
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchDashboardData(),
+      fetchGatewiseHealth(),
+    ]);
+    setRefreshing(false);
+  };
+
   if (loading || !user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E293B]">
@@ -226,10 +236,20 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         <FadeIn>
           <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-3xl font-bold mb-2">
-                Welcome back, {user.email?.split('@')[0] || 'User'}!
-              </h2>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl font-bold mb-2">
+                  Welcome back, {user.email?.split('@')[0] || 'User'}!
+                </h2>
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="mb-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  title="Refresh dashboard"
+                >
+                  <RefreshCw className={`w-5 h-5 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
               <p className="text-muted-foreground text-lg">
                 {company?.name || 'Your'} Access Control system is {metrics?.uptime_percentage === 100 ? 'running smoothly' : 'operational'}
                 {metrics && metrics.pods_online > 0 && ` — ${metrics.pods_online} pod${metrics.pods_online > 1 ? 's' : ''} online`}
