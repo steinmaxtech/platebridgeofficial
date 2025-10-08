@@ -48,6 +48,7 @@ export default function SettingsPage() {
   });
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -166,7 +167,38 @@ export default function SettingsPage() {
       return;
     }
 
+    if (!gatewiseConfig.api_endpoint.trim()) {
+      toast.error('Please enter an API endpoint');
+      return;
+    }
+
+    setTesting(true);
     toast.info('Testing Gatewise connection...');
+
+    try {
+      const response = await fetch('/api/gatewise/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: gatewiseConfig.api_key,
+          api_endpoint: gatewiseConfig.api_endpoint,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('Connection successful! Gatewise API is reachable.');
+      } else {
+        toast.error(result.message || 'Connection failed');
+      }
+    } catch (error: any) {
+      toast.error(`Connection test failed: ${error.message}`);
+    } finally {
+      setTesting(false);
+    }
   };
 
   if (loading || !user || !profile) {
@@ -326,17 +358,18 @@ export default function SettingsPage() {
                     <div className="flex gap-3">
                       <Button
                         onClick={handleSaveGatewiseConfig}
-                        disabled={saving}
+                        disabled={saving || testing}
                         className="flex-1 rounded-xl bg-[#0A84FF] hover:bg-[#0869CC]"
                       >
                         {saving ? 'Saving...' : 'Save Configuration'}
                       </Button>
                       <Button
                         onClick={handleTestConnection}
+                        disabled={testing || saving}
                         variant="outline"
                         className="rounded-xl"
                       >
-                        Test Connection
+                        {testing ? 'Testing...' : 'Test Connection'}
                       </Button>
                     </div>
                   </>
