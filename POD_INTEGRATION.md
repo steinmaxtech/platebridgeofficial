@@ -16,7 +16,63 @@ Your PlateBridge system supports connecting physical gate pods (license plate re
 
 ## Available API Endpoints
 
-### 1. Get Plates Configuration for a Site
+### 1. Report Plate Detection (NEW - Gatewise Integration)
+
+**Endpoint:** `POST /api/pod/detect`
+
+**Purpose:** Pods call this when they detect a license plate. The system will:
+1. Check if the plate is in the whitelist
+2. Log the detection to audit table
+3. If authorized AND Gatewise is configured, automatically open the gate
+4. Return authorization status to the pod
+
+**Request Body:**
+```json
+{
+  "site_id": "site-001",
+  "plate": "ABC123",
+  "camera": "camera-1",
+  "pod_name": "main-gate-pod"
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST "https://your-domain.vercel.app/api/pod/detect" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "site_id": "site-001",
+    "plate": "ABC123",
+    "camera": "camera-1",
+    "pod_name": "main-gate-pod"
+  }'
+```
+
+**Example Response (Authorized + Gate Opened):**
+```json
+{
+  "success": true,
+  "action": "allow",
+  "gate_opened": true,
+  "plate_info": {
+    "unit": "101",
+    "tenant": "John Doe",
+    "vehicle": "Toyota Camry"
+  }
+}
+```
+
+**Example Response (Unauthorized):**
+```json
+{
+  "success": true,
+  "action": "deny",
+  "gate_opened": false,
+  "message": "Plate not in whitelist"
+}
+```
+
+### 2. Get Plates Configuration for a Site
 
 **Endpoint:** `GET /api/plates`
 

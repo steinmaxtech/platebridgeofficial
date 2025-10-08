@@ -25,12 +25,24 @@ export async function GET(request: NextRequest) {
   try {
     const { data: site, error: siteError } = await supabaseServer
       .from('sites')
-      .select('id, config_version, company_id')
-      .eq('name', siteName)
-      .eq('company_id', companyId)
+      .select('id, config_version, community_id')
+      .eq('site_id', siteName)
       .maybeSingle();
 
     if (siteError || !site) {
+      return NextResponse.json(
+        { error: 'Site not found' },
+        { status: 404 }
+      );
+    }
+
+    const { data: community, error: communityError } = await supabaseServer
+      .from('communities')
+      .select('company_id')
+      .eq('id', site.community_id)
+      .maybeSingle();
+
+    if (communityError || !community || community.company_id !== companyId) {
       return NextResponse.json(
         { error: 'Site not found or company mismatch' },
         { status: 404 }
@@ -40,7 +52,8 @@ export async function GET(request: NextRequest) {
     const { data: plates, error: platesError } = await supabaseServer
       .from('plates')
       .select('*')
-      .eq('site_id', site.id)
+      .eq('community_id', site.community_id)
+      .contains('site_ids', [siteName])
       .eq('enabled', true);
 
     if (platesError) {
@@ -53,7 +66,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       config_version: site.config_version,
       site: siteName,
-      company_id: site.company_id,
+      company_id: companyId,
       entries: plates || [],
       timestamp: new Date().toISOString()
     });
