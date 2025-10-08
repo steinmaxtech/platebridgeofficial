@@ -53,6 +53,8 @@ export default function SettingsPage() {
   const [loadingConfig, setLoadingConfig] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [fetchingAccessPoints, setFetchingAccessPoints] = useState(false);
+  const [accessPoints, setAccessPoints] = useState<Array<{id: string, name: string}>>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -167,6 +169,53 @@ export default function SettingsPage() {
     fetchCommunities();
   };
 
+  const handleFetchAccessPoints = async () => {
+    if (!gatewiseConfig.api_key.trim()) {
+      toast.error('Please enter an API key first');
+      return;
+    }
+
+    if (!gatewiseConfig.api_endpoint.trim()) {
+      toast.error('Please enter an API endpoint');
+      return;
+    }
+
+    if (!gatewiseConfig.gatewise_community_id.trim()) {
+      toast.error('Please enter a Gatewise Community ID');
+      return;
+    }
+
+    setFetchingAccessPoints(true);
+    toast.info('Fetching available access points...');
+
+    try {
+      const response = await fetch('/api/gatewise/access-points', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          api_key: gatewiseConfig.api_key,
+          api_endpoint: gatewiseConfig.api_endpoint,
+          community_id: gatewiseConfig.gatewise_community_id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.access_points) {
+        setAccessPoints(result.access_points);
+        toast.success(`Found ${result.access_points.length} access point(s)`);
+      } else {
+        toast.error(result.message || 'Failed to fetch access points');
+      }
+    } catch (error: any) {
+      toast.error(`Failed to fetch access points: ${error.message}`);
+    } finally {
+      setFetchingAccessPoints(false);
+    }
+  };
+
   const handleTestConnection = async () => {
     if (!gatewiseConfig.api_key.trim()) {
       toast.error('Please enter an API key first');
@@ -178,8 +227,18 @@ export default function SettingsPage() {
       return;
     }
 
+    if (!gatewiseConfig.gatewise_community_id.trim()) {
+      toast.error('Please enter a Gatewise Community ID');
+      return;
+    }
+
+    if (!gatewiseConfig.gatewise_access_point_id.trim()) {
+      toast.error('Please select an access point to test');
+      return;
+    }
+
     setTesting(true);
-    toast.info('Testing Gatewise connection...');
+    toast.info('Testing gate open command...');
 
     try {
       const response = await fetch('/api/gatewise/test', {
@@ -190,20 +249,20 @@ export default function SettingsPage() {
         body: JSON.stringify({
           api_key: gatewiseConfig.api_key,
           api_endpoint: gatewiseConfig.api_endpoint,
+          community_id: gatewiseConfig.gatewise_community_id,
+          access_point_id: gatewiseConfig.gatewise_access_point_id,
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        toast.success('Connection successful! Gatewise API is reachable.');
-      } else if (result.partial_success) {
-        toast.success('API endpoint is reachable! Configuration looks good.');
+        toast.success('Gate opened successfully!');
       } else {
-        toast.error(result.message || 'Connection failed');
+        toast.error(result.message || 'Failed to open gate');
       }
     } catch (error: any) {
-      toast.error(`Connection test failed: ${error.message}`);
+      toast.error(`Test failed: ${error.message}`);
     } finally {
       setTesting(false);
     }
@@ -344,37 +403,58 @@ export default function SettingsPage() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Gatewise Community ID</Label>
-                        <Input
-                          value={gatewiseConfig.gatewise_community_id}
-                          onChange={(e) =>
-                            setGatewiseConfig({ ...gatewiseConfig, gatewise_community_id: e.target.value })
-                          }
-                          placeholder="3714"
-                          className="mt-2"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          From the Gatewise API URL
-                        </p>
-                      </div>
-
-                      <div>
-                        <Label>Access Point ID</Label>
-                        <Input
-                          value={gatewiseConfig.gatewise_access_point_id}
-                          onChange={(e) =>
-                            setGatewiseConfig({ ...gatewiseConfig, gatewise_access_point_id: e.target.value })
-                          }
-                          placeholder="16685"
-                          className="mt-2"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          The gate/access point to control
-                        </p>
-                      </div>
+                    <div>
+                      <Label>Gatewise Community ID</Label>
+                      <Input
+                        value={gatewiseConfig.gatewise_community_id}
+                        onChange={(e) => {
+                          setGatewiseConfig({ ...gatewiseConfig, gatewise_community_id: e.target.value });
+                          setAccessPoints([]);
+                        }}
+                        placeholder="3714"
+                        className="mt-2"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        From the Gatewise API URL
+                      </p>
                     </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleFetchAccessPoints}
+                        disabled={fetchingAccessPoints || !gatewiseConfig.api_key || !gatewiseConfig.gatewise_community_id}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        {fetchingAccessPoints ? 'Fetching...' : 'Fetch Available Access Points'}
+                      </Button>
+                    </div>
+
+                    {accessPoints.length > 0 && (
+                      <div>
+                        <Label>Select Access Point</Label>
+                        <Select
+                          value={gatewiseConfig.gatewise_access_point_id}
+                          onValueChange={(value) =>
+                            setGatewiseConfig({ ...gatewiseConfig, gatewise_access_point_id: value })
+                          }
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue placeholder="Choose an access point" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accessPoints.map((ap) => (
+                              <SelectItem key={ap.id} value={ap.id}>
+                                {ap.name} (ID: {ap.id})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Select the gate/access point to control
+                        </p>
+                      </div>
+                    )}
 
                     {gatewiseConfig.last_sync && (
                       <div className="p-4 rounded-lg bg-muted/50">
@@ -408,11 +488,11 @@ export default function SettingsPage() {
                       </Button>
                       <Button
                         onClick={handleTestConnection}
-                        disabled={testing || saving}
+                        disabled={testing || saving || !gatewiseConfig.gatewise_access_point_id}
                         variant="outline"
                         className="rounded-xl"
                       >
-                        {testing ? 'Testing...' : 'Test Connection'}
+                        {testing ? 'Testing...' : 'Test Gate Open'}
                       </Button>
                     </div>
                   </>

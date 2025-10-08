@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { api_key, api_endpoint } = await request.json();
+    const { api_key, api_endpoint, community_id, access_point_id } = await request.json();
 
     if (!api_key || !api_endpoint) {
       return NextResponse.json(
@@ -25,12 +25,22 @@ export async function POST(request: NextRequest) {
 
     baseUrl = baseUrl.replace(/\/+$/, '');
 
-    const testEndpoint = `${baseUrl}/health`;
+    if (!community_id || !access_point_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Community ID and Access Point ID are required for testing',
+        },
+        { status: 400 }
+      );
+    }
 
-    console.log('Testing Gatewise connection to:', testEndpoint);
+    const testEndpoint = `${baseUrl}/community/${community_id}/access-point/${access_point_id}/open`;
+
+    console.log('Testing gate open command at:', testEndpoint);
 
     const response = await fetch(testEndpoint, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${api_key}`,
         'Accept': 'application/json',
@@ -50,19 +60,9 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({
         success: true,
-        message: 'Connection successful! Gatewise API is reachable.',
+        message: 'Gate opened successfully!',
         data: data,
       });
-    } else if (response.status === 404) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Health endpoint not found. Testing basic connectivity instead...',
-          details: 'The API endpoint appears to be reachable but may not have a /health endpoint. This is okay - your configuration should work for actual API calls.',
-          partial_success: true,
-        },
-        { status: 200 }
-      );
     } else if (response.status === 401 || response.status === 403) {
       return NextResponse.json(
         {
@@ -72,12 +72,21 @@ export async function POST(request: NextRequest) {
         },
         { status: 200 }
       );
+    } else if (response.status === 404) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Access point not found. Please verify the Community ID and Access Point ID.',
+          details: `HTTP ${response.status}: ${response.statusText}`,
+        },
+        { status: 200 }
+      );
     } else {
       const errorText = await response.text().catch(() => 'No error details available');
       return NextResponse.json(
         {
           success: false,
-          message: `Connection failed: ${response.status} ${response.statusText}`,
+          message: `Failed to open gate: ${response.status} ${response.statusText}`,
           details: errorText,
         },
         { status: 200 }
