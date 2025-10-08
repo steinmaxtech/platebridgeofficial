@@ -22,6 +22,12 @@ interface SystemMetrics {
   last_sync?: string;
 }
 
+interface GatewiseHealth {
+  status: 'healthy' | 'unhealthy';
+  statusCode: number;
+  enabled: boolean;
+}
+
 interface PodHealth {
   id: string;
   pod_name: string;
@@ -48,6 +54,7 @@ export default function DashboardPage() {
   const [pods, setPods] = useState<PodHealth[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [gatewiseHealth, setGatewiseHealth] = useState<GatewiseHealth | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -58,6 +65,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user && profile && activeCompanyId) {
       fetchDashboardData();
+      fetchGatewiseHealth();
     }
   }, [user, profile, activeCompanyId]);
 
@@ -123,6 +131,44 @@ export default function DashboardPage() {
     }
 
     setLoadingData(false);
+  };
+
+  const fetchGatewiseHealth = async () => {
+    try {
+      const healthResponse = await fetch('/api/gatewise/health');
+      const healthData = await healthResponse.json();
+
+      const { data: communities } = await supabase
+        .from('communities')
+        .select('id')
+        .eq('company_id', activeCompanyId);
+
+      let isEnabled = false;
+      if (communities && communities.length > 0) {
+        const { data: configData } = await supabase
+          .from('gatewise_config')
+          .select('enabled')
+          .in('community_id', communities.map(c => c.id))
+          .eq('enabled', true)
+          .limit(1)
+          .maybeSingle();
+
+        isEnabled = !!configData;
+      }
+
+      setGatewiseHealth({
+        status: healthData.status,
+        statusCode: healthData.statusCode,
+        enabled: isEnabled,
+      });
+    } catch (error) {
+      console.error('Error fetching Gatewise health:', error);
+      setGatewiseHealth({
+        status: 'unhealthy',
+        statusCode: 0,
+        enabled: false,
+      });
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -232,14 +278,26 @@ export default function DashboardPage() {
 
               <AnimatedCard delay={0.15} className="p-6 rounded-2xl shadow-sm bg-white dark:bg-[#2D3748]">
                 <div className="flex items-center justify-between mb-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  <span className={`text-xs font-medium ${metrics?.gatewise_connected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {metrics?.gatewise_connected ? 'Connected' : 'Offline'}
+                  {gatewiseHealth?.status === 'healthy' && gatewiseHealth?.enabled ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  ) : gatewiseHealth?.enabled ? (
+                    <AlertCircle className="w-5 h-5 text-yellow-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-gray-500" />
+                  )}
+                  <span className={`text-xs font-medium ${
+                    gatewiseHealth?.status === 'healthy' && gatewiseHealth?.enabled
+                      ? 'text-green-600 dark:text-green-400'
+                      : gatewiseHealth?.enabled
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {!gatewiseHealth?.enabled ? 'Disabled' : gatewiseHealth?.status === 'healthy' ? 'Connected' : 'API Down'}
                   </span>
                 </div>
                 <h3 className="text-sm text-muted-foreground mb-1">Gatewise</h3>
                 <p className="text-2xl font-semibold">
-                  {metrics?.gatewise_connected ? 'Active' : 'Inactive'}
+                  {!gatewiseHealth?.enabled ? 'Off' : gatewiseHealth?.status === 'healthy' ? 'Active' : 'Error'}
                 </p>
               </AnimatedCard>
 
