@@ -27,6 +27,8 @@ interface GatewiseConfig {
   community_id: string;
   api_key: string;
   api_endpoint: string;
+  gatewise_community_id: string;
+  gatewise_access_point_id: string;
   enabled: boolean;
   last_sync: string | null;
   sync_status: string;
@@ -42,6 +44,8 @@ export default function SettingsPage() {
     community_id: '',
     api_key: '',
     api_endpoint: 'https://partners-api.gatewise.com',
+    gatewise_community_id: '',
+    gatewise_access_point_id: '',
     enabled: true,
     last_sync: null,
     sync_status: 'pending',
@@ -99,6 +103,8 @@ export default function SettingsPage() {
         community_id: communityId,
         api_key: '',
         api_endpoint: 'https://partners-api.gatewise.com',
+        gatewise_community_id: '',
+        gatewise_access_point_id: '',
         enabled: true,
         last_sync: null,
         sync_status: 'pending',
@@ -336,6 +342,38 @@ export default function SettingsPage() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Enter the base URL only (e.g., https://partners-api.gatewise.com)
                       </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Gatewise Community ID</Label>
+                        <Input
+                          value={gatewiseConfig.gatewise_community_id}
+                          onChange={(e) =>
+                            setGatewiseConfig({ ...gatewiseConfig, gatewise_community_id: e.target.value })
+                          }
+                          placeholder="3714"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          From the Gatewise API URL
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label>Access Point ID</Label>
+                        <Input
+                          value={gatewiseConfig.gatewise_access_point_id}
+                          onChange={(e) =>
+                            setGatewiseConfig({ ...gatewiseConfig, gatewise_access_point_id: e.target.value })
+                          }
+                          placeholder="16685"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          The gate/access point to control
+                        </p>
+                      </div>
                     </div>
 
                     {gatewiseConfig.last_sync && (
