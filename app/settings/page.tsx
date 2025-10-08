@@ -41,7 +41,7 @@ export default function SettingsPage() {
   const [gatewiseConfig, setGatewiseConfig] = useState<GatewiseConfig>({
     community_id: '',
     api_key: '',
-    api_endpoint: 'https://api.gatewise.com/v1',
+    api_endpoint: 'https://partners-api.gatewise.com',
     enabled: true,
     last_sync: null,
     sync_status: 'pending',
@@ -98,7 +98,7 @@ export default function SettingsPage() {
       setGatewiseConfig({
         community_id: communityId,
         api_key: '',
-        api_endpoint: 'https://api.gatewise.com/v1',
+        api_endpoint: 'https://partners-api.gatewise.com',
         enabled: true,
         last_sync: null,
         sync_status: 'pending',
@@ -338,9 +338,12 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setGatewiseConfig({ ...gatewiseConfig, api_endpoint: e.target.value })
                         }
-                        placeholder="https://api.gatewise.com/v1"
+                        placeholder="https://partners-api.gatewise.com"
                         className="mt-2"
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Enter the base URL only (e.g., https://partners-api.gatewise.com)
+                      </p>
                     </div>
 
                     {gatewiseConfig.last_sync && (
