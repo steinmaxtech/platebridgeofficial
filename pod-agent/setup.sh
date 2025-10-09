@@ -45,12 +45,8 @@ install_agent() {
 
     cd "$INSTALL_DIR"
     echo "Installing Python dependencies..."
-    echo "Creating virtual environment..."
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-deactivate
+    sudo PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -r requirements.txt
+
 
 
     echo "✓ Agent files installed"
