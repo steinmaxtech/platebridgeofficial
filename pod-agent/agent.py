@@ -225,6 +225,28 @@ class PlateBridgeAgent:
             logger.error(f"Error starting MQTT listener: {e}")
             return None
 
+    async def send_heartbeat(self) -> bool:
+        try:
+            url = f"{self.config['portal_url']}/api/pod/heartbeat"
+            headers = {
+                'Authorization': f"Bearer {self.config['api_key']}",
+                'Content-Type': 'application/json'
+            }
+
+            logger.debug("Sending heartbeat to portal...")
+            response = requests.post(url, headers=headers, timeout=5)
+
+            if response.status_code == 200:
+                logger.debug("Heartbeat sent successfully")
+                return True
+            else:
+                logger.warning(f"Failed to send heartbeat: HTTP {response.status_code}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error sending heartbeat: {e}")
+            return False
+
     async def run(self):
         logger.info("=" * 60)
         logger.info("PlateBridge Pod Agent Starting")
@@ -244,11 +266,24 @@ class PlateBridgeAgent:
         mqtt_client.loop_start()
 
         refresh_interval = self.config.get('whitelist_refresh_interval', 300)
+        heartbeat_interval = self.config.get('heartbeat_interval', 30)
+
+        last_heartbeat = 0
+        last_refresh = 0
 
         try:
             while True:
-                await asyncio.sleep(refresh_interval)
-                await self.refresh_whitelist()
+                current_time = time.time()
+
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    await self.send_heartbeat()
+                    last_heartbeat = current_time
+
+                if current_time - last_refresh >= refresh_interval:
+                    await self.refresh_whitelist()
+                    last_refresh = current_time
+
+                await asyncio.sleep(1)
 
         except KeyboardInterrupt:
             logger.info("\nShutting down gracefully...")
