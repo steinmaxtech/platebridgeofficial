@@ -30,7 +30,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'admin', 'manager', 'viewer', 'resident'] },
     { href: '/companies', label: 'Companies', icon: Building, roles: ['owner', 'admin'] },
     { href: '/communities', label: 'Communities', icon: Home, roles: ['owner', 'admin', 'manager'] },
-    { href: '/properties', label: 'Sites', icon: MapPin, roles: ['owner', 'admin', 'manager'] },
     { href: '/pods', label: 'PODs', icon: Server, roles: ['owner', 'admin', 'manager'] },
     { href: '/cameras', label: 'Cameras', icon: Camera, roles: ['owner', 'admin', 'manager', 'viewer'] },
     { href: '/users', label: 'Users', icon: Users, roles: ['owner', 'admin', 'manager'] },

@@ -20,18 +20,18 @@ import { formatDistanceToNow } from 'date-fns';
 interface Pod {
   id: string;
   name: string;
-  site_id: string;
+  community_id: string;
   pod_id: string;
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
-  site_name?: string;
+  community_name?: string;
 }
 
-interface Site {
+interface Community {
   id: string;
   name: string;
-  site_id: string;
+  address: string;
 }
 
 export default function PodsPage() {
@@ -40,11 +40,11 @@ export default function PodsPage() {
   const { activeCompanyId } = useCompany();
 
   const [pods, setPods] = useState<Pod[]>([]);
-  const [sites, setSites] = useState<Site[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
   const [loadingPods, setLoadingPods] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showSetupDialog, setShowSetupDialog] = useState(false);
-  const [selectedSiteId, setSelectedSiteId] = useState('');
+  const [selectedCommunityId, setSelectedCommunityId] = useState('');
   const [podName, setPodName] = useState('');
   const [podId, setPodId] = useState('');
   const [creating, setCreating] = useState(false);
@@ -60,24 +60,24 @@ export default function PodsPage() {
 
   useEffect(() => {
     if (user && activeCompanyId) {
-      fetchSites();
+      fetchCommunities();
       fetchPods();
     }
   }, [user, activeCompanyId]);
 
-  const fetchSites = async () => {
+  const fetchCommunities = async () => {
     try {
       const { data, error } = await supabase
-        .from('sites')
-        .select('id, name, site_id, community_id, communities(company_id)')
-        .eq('communities.company_id', activeCompanyId)
+        .from('communities')
+        .select('id, name, address')
+        .eq('company_id', activeCompanyId)
         .order('name');
 
       if (error) throw error;
-      setSites(data || []);
+      setCommunities(data || []);
     } catch (error: any) {
-      console.error('Error fetching sites:', error);
-      toast.error('Failed to load sites');
+      console.error('Error fetching communities:', error);
+      toast.error('Failed to load communities');
     }
   };
 
@@ -89,23 +89,23 @@ export default function PodsPage() {
         .select(`
           id,
           name,
-          site_id,
+          community_id,
           pod_id,
           created_at,
           last_used_at,
           revoked_at,
-          sites(name)
+          communities(name)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const podsWithSiteNames = (data || []).map((pod: any) => ({
+      const podsWithCommunityNames = (data || []).map((pod: any) => ({
         ...pod,
-        site_name: pod.sites?.name || 'Unknown Site',
+        community_name: pod.communities?.name || 'Unknown Community',
       }));
 
-      setPods(podsWithSiteNames);
+      setPods(podsWithCommunityNames);
     } catch (error: any) {
       console.error('Error fetching pods:', error);
       toast.error('Failed to load PODs');
@@ -132,7 +132,7 @@ export default function PodsPage() {
   };
 
   const handleCreatePod = async () => {
-    if (!selectedSiteId || !podName || !podId) {
+    if (!selectedCommunityId || !podName || !podId) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -147,7 +147,7 @@ export default function PodsPage() {
         .from('pod_api_keys')
         .insert({
           name: podName,
-          site_id: selectedSiteId,
+          community_id: selectedCommunityId,
           pod_id: podId,
           key_hash: keyHash,
           created_by: user?.id,
@@ -169,7 +169,7 @@ export default function PodsPage() {
 
       setPodName('');
       setPodId('');
-      setSelectedSiteId('');
+      setSelectedCommunityId('');
     } catch (error: any) {
       console.error('Error creating POD:', error);
       toast.error('Failed to create POD: ' + error.message);
@@ -243,7 +243,7 @@ export default function PodsPage() {
           <div>
             <h1 className="text-3xl font-bold">POD Management</h1>
             <p className="text-muted-foreground mt-1">
-              Manage license plate detection devices at your sites
+              Manage license plate detection devices at your communities
             </p>
           </div>
           <Button onClick={() => setShowAddDialog(true)}>
@@ -286,7 +286,7 @@ export default function PodsPage() {
                           {pod.name}
                         </CardTitle>
                         <CardDescription className="mt-1">
-                          {pod.site_name}
+                          {pod.community_name}
                         </CardDescription>
                       </div>
                       <Badge variant={status.variant}>
@@ -349,15 +349,15 @@ export default function PodsPage() {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="site">Site Location</Label>
-              <Select value={selectedSiteId} onValueChange={setSelectedSiteId}>
-                <SelectTrigger id="site">
-                  <SelectValue placeholder="Select a site" />
+              <Label htmlFor="community">Community Location</Label>
+              <Select value={selectedCommunityId} onValueChange={setSelectedCommunityId}>
+                <SelectTrigger id="community">
+                  <SelectValue placeholder="Select a community" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sites.map((site) => (
-                    <SelectItem key={site.id} value={site.id}>
-                      {site.name}
+                  {communities.map((community) => (
+                    <SelectItem key={community.id} value={community.id}>
+                      {community.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

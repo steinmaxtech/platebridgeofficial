@@ -28,7 +28,7 @@ async function verifyApiKey(authHeader: string | null) {
 
     const { data: keyData, error } = await supabaseServer
       .from('pod_api_keys')
-      .select('id, name, site_id, pod_id, revoked_at, sites!inner(site_id, name)')
+      .select('id, name, community_id, pod_id, revoked_at, communities!inner(name, address)')
       .eq('key_hash', keyHash)
       .maybeSingle();
 
@@ -55,13 +55,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const site = Array.isArray(podData.sites) ? podData.sites[0] : podData.sites;
+    const community = Array.isArray(podData.communities) ? podData.communities[0] : podData.communities;
 
     return NextResponse.json({
       name: podData.name,
       pod_id: podData.pod_id,
-      site_id: site?.site_id || podData.site_id,
-      site_name: site?.name || 'Unknown Site',
+      community_id: podData.community_id,
+      community_name: community?.name || 'Unknown Community',
+      community_address: community?.address || '',
     });
   } catch (error: any) {
     console.error('[POD Info] Error:', error);

@@ -62,11 +62,12 @@ fetch_pod_info() {
         return 1
     fi
 
-    SITE_ID=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('site_id', ''))" 2>/dev/null || echo "")
+    COMMUNITY_ID=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('community_id', ''))" 2>/dev/null || echo "")
     POD_ID=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('pod_id', ''))" 2>/dev/null || echo "")
     POD_NAME=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('name', ''))" 2>/dev/null || echo "")
+    COMMUNITY_NAME=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('community_name', ''))" 2>/dev/null || echo "")
 
-    if [ -z "$SITE_ID" ] || [ -z "$POD_ID" ]; then
+    if [ -z "$COMMUNITY_ID" ] || [ -z "$POD_ID" ]; then
         echo "✗ Invalid API key or POD not found"
         return 1
     fi
@@ -74,7 +75,7 @@ fetch_pod_info() {
     echo "✓ POD Info:"
     echo "  Name: $POD_NAME"
     echo "  POD ID: $POD_ID"
-    echo "  Site ID: $SITE_ID"
+    echo "  Community: $COMMUNITY_NAME"
     return 0
 }
 
@@ -156,7 +157,7 @@ class PlateBridgeAgent:
                 'Content-Type': 'application/json'
             }
             payload = {
-                'site_id': self.config['site_id'],
+                'community_id': self.config.get('community_id', ''),
                 'plate': plate,
                 'camera': camera,
                 'pod_name': self.config['pod_id']
@@ -242,7 +243,7 @@ class PlateBridgeAgent:
         logger.info("=" * 60)
         logger.info("PlateBridge Pod Agent Starting")
         logger.info(f"Portal: {self.config['portal_url']}")
-        logger.info(f"Site: {self.config['site_id']}")
+        logger.info(f"Community: {self.config.get('community_id', 'N/A')}")
         logger.info(f"POD: {self.config['pod_id']}")
         logger.info("=" * 60)
 
@@ -318,7 +319,7 @@ create_config() {
 
 portal_url: "$PORTAL_URL"
 api_key: "$API_KEY"
-site_id: "$SITE_ID"
+community_id: "$COMMUNITY_ID"
 pod_id: "$POD_ID"
 
 frigate_mqtt_host: "$MQTT_HOST"
