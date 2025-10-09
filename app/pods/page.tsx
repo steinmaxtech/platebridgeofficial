@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Plus, Server, Activity, Clock, Copy, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { Plus, Server, Activity, Clock, Copy, CheckCircle2, AlertCircle, Trash2, RotateCw, Edit } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Pod {
@@ -51,6 +51,11 @@ export default function PodsPage() {
   const [generatedApiKey, setGeneratedApiKey] = useState('');
   const [setupCommand, setSetupCommand] = useState('');
   const [copiedCommand, setCopiedCommand] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingPod, setEditingPod] = useState<Pod | null>(null);
+  const [editPodName, setEditPodName] = useState('');
+  const [editPodId, setEditPodId] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -211,6 +216,78 @@ export default function PodsPage() {
     }
   };
 
+  const handleEditPod = (pod: Pod) => {
+    setEditingPod(pod);
+    setEditPodName(pod.name);
+    setEditPodId(pod.pod_id);
+    setShowEditDialog(true);
+  };
+
+  const handleUpdatePod = async () => {
+    if (!editingPod || !editPodName || !editPodId) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setUpdating(true);
+
+      const { error } = await supabase
+        .from('pod_api_keys')
+        .update({
+          name: editPodName,
+          pod_id: editPodId,
+        })
+        .eq('id', editingPod.id);
+
+      if (error) throw error;
+
+      toast.success('POD updated successfully');
+      setShowEditDialog(false);
+      fetchPods();
+    } catch (error: any) {
+      console.error('Error updating POD:', error);
+      toast.error('Failed to update POD: ' + error.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleRegenerateKey = async (pod: Pod) => {
+    if (!confirm('Are you sure you want to regenerate the API key? The old key will stop working immediately.')) {
+      return;
+    }
+
+    try {
+      const apiKey = generateApiKey();
+      const keyHash = await hashApiKey(apiKey);
+
+      const { error } = await supabase
+        .from('pod_api_keys')
+        .update({
+          key_hash: keyHash,
+          last_used_at: null,
+        })
+        .eq('id', pod.id);
+
+      if (error) throw error;
+
+      setGeneratedApiKey(apiKey);
+
+      const portalUrl = window.location.origin;
+      const command = `curl -fsSL ${portalUrl}/install-pod.sh | bash -s -- "${apiKey}"`;
+      setSetupCommand(command);
+
+      setShowSetupDialog(true);
+
+      toast.success('API key regenerated successfully!');
+      fetchPods();
+    } catch (error: any) {
+      console.error('Error regenerating API key:', error);
+      toast.error('Failed to regenerate API key');
+    }
+  };
+
   const getPodStatus = (pod: Pod) => {
     if (pod.revoked_at) {
       return { label: 'Revoked', variant: 'destructive' as const, icon: AlertCircle };
@@ -319,10 +396,32 @@ export default function PodsPage() {
                       </div>
 
                       {!pod.revoked_at && (
+                        <div className="flex gap-2 mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleEditPod(pod)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleRegenerateKey(pod)}
+                          >
+                            <RotateCw className="w-4 h-4 mr-2" />
+                            Regen Key
+                          </Button>
+                        </div>
+                      )}
+                      {!pod.revoked_at && (
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="w-full mt-4"
+                          className="w-full mt-2"
                           onClick={() => handleRevokePod(pod.id)}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -468,6 +567,54 @@ export default function PodsPage() {
           <DialogFooter>
             <Button onClick={() => setShowSetupDialog(false)}>
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit POD</DialogTitle>
+            <DialogDescription>
+              Update the POD name and identifier
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editPodName">POD Name</Label>
+              <Input
+                id="editPodName"
+                placeholder="e.g., Main Gate, North Entrance"
+                value={editPodName}
+                onChange={(e) => setEditPodName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                A friendly name to identify this POD
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="editPodId">POD ID</Label>
+              <Input
+                id="editPodId"
+                placeholder="e.g., main-gate, north-entrance"
+                value={editPodId}
+                onChange={(e) => setEditPodId(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Unique identifier (lowercase, hyphens only)
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePod} disabled={updating}>
+              {updating ? 'Updating...' : 'Update POD'}
             </Button>
           </DialogFooter>
         </DialogContent>
