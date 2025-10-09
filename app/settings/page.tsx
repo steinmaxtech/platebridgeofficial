@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Key, Building2, Link as LinkIcon, Shield, Trash2, Copy, Plus, CheckCircle2, Upload, Globe, Clock, Bell, CreditCard } from 'lucide-react';
+import { Key, Building2, Link as LinkIcon, Shield, Trash2, Copy, Plus, CheckCircle2, Upload, Globe, Bell, CreditCard } from 'lucide-react';
 
 interface Community {
   id: string;
@@ -56,7 +56,6 @@ interface Company {
   is_active: boolean;
   logo_url?: string;
   timezone?: string;
-  sla_target_minutes?: number;
   notification_email?: string;
   created_at: string;
   updated_at: string;
@@ -96,7 +95,6 @@ export default function SettingsPage() {
     name: '',
     is_active: true,
     timezone: 'America/New_York',
-    sla_target_minutes: 15,
     notification_email: '',
   });
   const [savingCompany, setSavingCompany] = useState(false);
@@ -164,7 +162,6 @@ export default function SettingsPage() {
         name: data.name || '',
         is_active: data.is_active ?? true,
         timezone: data.timezone || 'America/New_York',
-        sla_target_minutes: data.sla_target_minutes || 15,
         notification_email: data.notification_email || '',
       });
     }
@@ -485,7 +482,6 @@ export default function SettingsPage() {
           name: companyFormData.name,
           is_active: companyFormData.is_active,
           timezone: companyFormData.timezone,
-          sla_target_minutes: companyFormData.sla_target_minutes,
           notification_email: companyFormData.notification_email,
           updated_at: new Date().toISOString(),
         })
@@ -819,32 +815,6 @@ export default function SettingsPage() {
                         </Select>
                         <p className="text-xs text-muted-foreground mt-1">
                           Used for scheduling and reports
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="border-t pt-6">
-                      <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <Clock className="w-5 h-5" />
-                        Service Level Agreement
-                      </h4>
-                      <div>
-                        <Label>Response Time Target (minutes)</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="1440"
-                          value={companyFormData.sla_target_minutes}
-                          onChange={(e) =>
-                            setCompanyFormData({
-                              ...companyFormData,
-                              sla_target_minutes: parseInt(e.target.value) || 15,
-                            })
-                          }
-                          className="mt-2"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Target time for responding to plate detections
                         </p>
                       </div>
                     </div>
