@@ -268,7 +268,7 @@ class CompletePodAgent:
             logger.error(f"Recording error: {e}")
             return None
 
-    async def register_recording(self, file_path: str, plate_number: Optional[str] = None):
+    async def register_recording(self, file_path: str, plate_number: Optional[str] = None, snapshot_path: Optional[str] = None):
         try:
             filename = os.path.basename(file_path)
             camera_id = self.config['camera_id']
@@ -281,17 +281,22 @@ class CompletePodAgent:
 
             logger.info(f"Registering recording in portal: {filename}")
 
+            payload = {
+                'camera_id': camera_id,
+                'file_path': file_path,
+                'file_size_bytes': file_size,
+                'duration_seconds': 30,
+                'event_type': 'plate_detection' if plate_number else 'manual',
+                'plate_number': plate_number
+            }
+
+            if snapshot_path:
+                payload['thumbnail_path'] = snapshot_path
+
             response = requests.post(
                 f"{self.config['portal_url']}/api/pod/recordings",
                 headers=headers,
-                json={
-                    'camera_id': camera_id,
-                    'file_path': file_path,
-                    'file_size_bytes': file_size,
-                    'duration_seconds': 30,
-                    'event_type': 'plate_detection' if plate_number else 'manual',
-                    'plate_number': plate_number
-                }
+                json=payload
             )
 
             if response.status_code == 200:
@@ -361,9 +366,33 @@ class CompletePodAgent:
             logger.error(f"Heartbeat error: {e}")
             return False
 
+    def get_frigate_snapshot(self, event_id: str) -> Optional[str]:
+        try:
+            frigate_url = self.config.get('frigate_url', 'http://localhost:5000')
+            snapshot_url = f"{frigate_url}/api/events/{event_id}/snapshot.jpg"
+
+            response = requests.get(snapshot_url, timeout=10)
+
+            if response.status_code == 200:
+                recordings_dir = self.config.get('recordings_dir', '/tmp/recordings')
+                snapshot_path = os.path.join(recordings_dir, f'{event_id}_snapshot.jpg')
+
+                with open(snapshot_path, 'wb') as f:
+                    f.write(response.content)
+
+                logger.info(f"Saved snapshot: {snapshot_path}")
+                return snapshot_path
+            else:
+                logger.warning(f"Failed to get snapshot: HTTP {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Snapshot retrieval error: {e}")
+            return None
+
     def on_mqtt_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            logger.info("Connected to MQTT broker")
+            logger.info("Connected to Frigate MQTT broker")
             topic = self.config.get('mqtt_topic', 'frigate/events')
             client.subscribe(topic)
             logger.info(f"Subscribed to: {topic}")
@@ -376,7 +405,9 @@ class CompletePodAgent:
 
             if payload.get('type') == 'new' and 'after' in payload:
                 event = payload['after']
+                event_id = event.get('id', '')
                 label = event.get('label', '')
+                camera = event.get('camera', 'unknown')
 
                 if label.lower() == 'license_plate':
                     plate = event.get('sub_label', '')
@@ -385,7 +416,11 @@ class CompletePodAgent:
                     min_confidence = self.config.get('min_confidence', 0.7)
 
                     if plate and confidence >= min_confidence:
-                        logger.info(f"Plate detected: {plate} ({confidence:.2%})")
+                        logger.info(f"[{camera}] Plate detected: {plate} ({confidence:.2%})")
+
+                        snapshot_path = None
+                        if self.config.get('save_snapshots', True) and event_id:
+                            snapshot_path = self.get_frigate_snapshot(event_id)
 
                         asyncio.run(self.send_detection(plate, confidence))
 
@@ -393,7 +428,15 @@ class CompletePodAgent:
                             logger.info("Recording clip...")
                             clip_path = self.record_clip(duration=30)
                             if clip_path:
-                                asyncio.run(self.register_recording(clip_path, plate))
+                                asyncio.run(self.register_recording(
+                                    clip_path,
+                                    plate,
+                                    snapshot_path=snapshot_path
+                                ))
+
+            elif payload.get('type') == 'end' and 'before' in payload:
+                event = payload['before']
+                logger.debug(f"Event ended: {event.get('id')}")
 
         except Exception as e:
             logger.error(f"MQTT message error: {e}")

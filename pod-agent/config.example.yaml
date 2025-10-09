@@ -28,13 +28,16 @@ record_on_detection: true  # Auto-record when plate detected
 recordings_dir: "/tmp/recordings"  # Where to save clips temporarily
 recording_duration: 30  # Seconds to record per clip
 
-# MQTT configuration (for Frigate integration)
-enable_mqtt: true
-mqtt_host: "localhost"
+# Frigate integration
+enable_mqtt: true  # Enable MQTT listener for Frigate events
+mqtt_host: "localhost"  # Frigate MQTT broker (usually same host)
 mqtt_port: 1883
-mqtt_topic: "frigate/events"
+mqtt_topic: "frigate/events"  # Frigate publishes events here
 # mqtt_username: "optional"
 # mqtt_password: "optional"
+
+frigate_url: "http://localhost:5000"  # Frigate API URL for snapshots
+save_snapshots: true  # Download snapshots from Frigate for each detection
 
 # Refresh intervals
 whitelist_refresh_interval: 300  # Seconds (5 minutes)
