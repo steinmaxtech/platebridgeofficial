@@ -268,57 +268,25 @@ class CompletePodAgent:
             logger.error(f"Recording error: {e}")
             return None
 
-    async def upload_recording(self, file_path: str, plate_number: Optional[str] = None):
+    async def register_recording(self, file_path: str, plate_number: Optional[str] = None):
         try:
             filename = os.path.basename(file_path)
             camera_id = self.config['camera_id']
+            file_size = os.path.getsize(file_path)
 
             headers = {
                 'Authorization': f"Bearer {self.config['pod_api_key']}",
                 'Content-Type': 'application/json'
             }
 
-            logger.info(f"Requesting upload URL for {filename}")
+            logger.info(f"Registering recording in portal: {filename}")
 
             response = requests.post(
-                f"{self.config['portal_url']}/api/pod/recordings/upload-url",
+                f"{self.config['portal_url']}/api/pod/recordings",
                 headers=headers,
                 json={
                     'camera_id': camera_id,
-                    'filename': filename
-                }
-            )
-
-            if response.status_code != 200:
-                logger.error(f"Failed to get upload URL: {response.text}")
-                return False
-
-            upload_data = response.json()
-            signed_url = upload_data['signed_url']
-
-            logger.info("Uploading file...")
-
-            with open(file_path, 'rb') as f:
-                upload_response = requests.put(
-                    signed_url,
-                    data=f,
-                    headers={'Content-Type': 'video/mp4'}
-                )
-
-            if upload_response.status_code not in [200, 201]:
-                logger.error(f"Upload failed: {upload_response.status_code}")
-                return False
-
-            logger.info("Confirming upload...")
-
-            file_size = os.path.getsize(file_path)
-
-            confirm_response = requests.post(
-                f"{self.config['portal_url']}/api/pod/recordings/confirm",
-                headers=headers,
-                json={
-                    'camera_id': camera_id,
-                    'file_path': upload_data['file_path'],
+                    'file_path': file_path,
                     'file_size_bytes': file_size,
                     'duration_seconds': 30,
                     'event_type': 'plate_detection' if plate_number else 'manual',
@@ -326,18 +294,34 @@ class CompletePodAgent:
                 }
             )
 
-            if confirm_response.status_code == 200:
-                logger.info("Upload confirmed successfully")
-                os.remove(file_path)
-                logger.info(f"Removed local file: {file_path}")
+            if response.status_code == 200:
+                logger.info("Recording registered successfully")
                 return True
             else:
-                logger.error(f"Failed to confirm: {confirm_response.text}")
+                logger.error(f"Failed to register recording: {response.text}")
                 return False
 
         except Exception as e:
-            logger.error(f"Upload error: {e}")
+            logger.error(f"Registration error: {e}")
             return False
+
+    def list_local_recordings(self):
+        recordings_dir = self.config.get('recordings_dir', '/tmp/recordings')
+        recordings = []
+
+        if os.path.exists(recordings_dir):
+            for filename in os.listdir(recordings_dir):
+                if filename.endswith('.mp4'):
+                    file_path = os.path.join(recordings_dir, filename)
+                    stat = os.stat(file_path)
+                    recordings.append({
+                        'filename': filename,
+                        'path': file_path,
+                        'size': stat.st_size,
+                        'created': datetime.fromtimestamp(stat.st_ctime).isoformat()
+                    })
+
+        return recordings
 
     async def send_heartbeat(self):
         try:
@@ -409,7 +393,7 @@ class CompletePodAgent:
                             logger.info("Recording clip...")
                             clip_path = self.record_clip(duration=30)
                             if clip_path:
-                                asyncio.run(self.upload_recording(clip_path, plate))
+                                asyncio.run(self.register_recording(clip_path, plate))
 
         except Exception as e:
             logger.error(f"MQTT message error: {e}")
@@ -497,12 +481,57 @@ class CompletePodAgent:
 
             return send_file(segment_path, mimetype='video/MP2T')
 
+        @app.route('/recordings/list')
+        def list_recordings():
+            token = request.args.get('token')
+
+            if not token or not self.validate_stream_token(token):
+                return jsonify({'error': 'Invalid token'}), 403
+
+            recordings = self.list_local_recordings()
+            return jsonify({'recordings': recordings})
+
+        @app.route('/recording/<recording_id>')
+        def get_recording(recording_id):
+            token = request.args.get('token')
+
+            if not token or not self.validate_stream_token(token):
+                return jsonify({'error': 'Invalid token'}), 403
+
+            recordings_dir = self.config.get('recordings_dir', '/tmp/recordings')
+
+            for filename in os.listdir(recordings_dir):
+                if filename.endswith('.mp4'):
+                    file_path = os.path.join(recordings_dir, filename)
+                    if recording_id in filename or os.path.basename(file_path) == recording_id:
+                        if os.path.exists(file_path):
+                            return send_file(file_path, mimetype='video/mp4')
+
+            return jsonify({'error': 'Recording not found'}), 404
+
+        @app.route('/thumbnail/<recording_id>')
+        def get_thumbnail(recording_id):
+            token = request.args.get('token')
+
+            if not token or not self.validate_stream_token(token):
+                return jsonify({'error': 'Invalid token'}), 403
+
+            recordings_dir = self.config.get('recordings_dir', '/tmp/recordings')
+            thumbnail_path = os.path.join(recordings_dir, f'{recording_id}_thumb.jpg')
+
+            if os.path.exists(thumbnail_path):
+                return send_file(thumbnail_path, mimetype='image/jpeg')
+
+            return jsonify({'error': 'Thumbnail not found'}), 404
+
         @app.route('/health')
         def health():
+            recordings = self.list_local_recordings()
             return jsonify({
                 'status': 'ok',
                 'pod_id': self.config['pod_id'],
-                'streaming': self.ffmpeg_process and self.ffmpeg_process.poll() is None
+                'streaming': self.ffmpeg_process and self.ffmpeg_process.poll() is None,
+                'recording_count': len(recordings)
             })
 
         stream_port = self.config.get('stream_port', 8000)
