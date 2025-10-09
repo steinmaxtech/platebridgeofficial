@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Key, Building2, Link as LinkIcon, Shield, Trash2, Copy, Plus, CheckCircle2 } from 'lucide-react';
+import { Key, Building2, Link as LinkIcon, Shield, Trash2, Copy, Plus, CheckCircle2, Upload, Globe, Clock, Bell, CreditCard } from 'lucide-react';
 
 interface Community {
   id: string;
@@ -50,6 +50,18 @@ interface PodApiKey {
   last_used_at: string | null;
 }
 
+interface Company {
+  id: string;
+  name: string;
+  is_active: boolean;
+  logo_url?: string;
+  timezone?: string;
+  sla_target_minutes?: number;
+  notification_email?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function SettingsPage() {
   const { user, profile, loading, effectiveRole } = useAuth();
   const { activeCompanyId } = useCompany();
@@ -79,6 +91,15 @@ export default function SettingsPage() {
   const [newKeyPodId, setNewKeyPodId] = useState('');
   const [creatingKey, setCreatingKey] = useState(false);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
+  const [activeCompany, setActiveCompany] = useState<Company | null>(null);
+  const [companyFormData, setCompanyFormData] = useState({
+    name: '',
+    is_active: true,
+    timezone: 'America/New_York',
+    sla_target_minutes: 15,
+    notification_email: '',
+  });
+  const [savingCompany, setSavingCompany] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -91,6 +112,7 @@ export default function SettingsPage() {
       fetchCommunities();
       fetchSites();
       fetchPodApiKeys();
+      fetchActiveCompany();
     }
   }, [user, profile, activeCompanyId]);
 
@@ -125,6 +147,26 @@ export default function SettingsPage() {
 
     if (data) {
       setSites(data);
+    }
+  };
+
+  const fetchActiveCompany = async () => {
+    if (!activeCompanyId) return;
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', activeCompanyId)
+      .maybeSingle();
+
+    if (data && !error) {
+      setActiveCompany(data);
+      setCompanyFormData({
+        name: data.name || '',
+        is_active: data.is_active ?? true,
+        timezone: data.timezone || 'America/New_York',
+        sla_target_minutes: data.sla_target_minutes || 15,
+        notification_email: data.notification_email || '',
+      });
     }
   };
 
@@ -423,6 +465,47 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveCompanySettings = async () => {
+    if (!activeCompanyId) {
+      toast.error('No active company selected');
+      return;
+    }
+
+    if (!companyFormData.name.trim()) {
+      toast.error('Company name is required');
+      return;
+    }
+
+    setSavingCompany(true);
+
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          name: companyFormData.name,
+          is_active: companyFormData.is_active,
+          timezone: companyFormData.timezone,
+          sla_target_minutes: companyFormData.sla_target_minutes,
+          notification_email: companyFormData.notification_email,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeCompanyId);
+
+      if (error) {
+        toast.error('Failed to update company settings');
+        console.error(error);
+      } else {
+        toast.success('Company settings updated successfully');
+        fetchActiveCompany();
+      }
+    } catch (error) {
+      toast.error('Failed to update company settings');
+      console.error(error);
+    } finally {
+      setSavingCompany(false);
+    }
+  };
+
   if (loading || !user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E293B]">
@@ -659,20 +742,167 @@ export default function SettingsPage() {
           <TabsContent value="company" className="space-y-6">
             <Card className="p-6 bg-white dark:bg-[#2D3748]">
               <div className="flex items-start gap-4 mb-6">
-                <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/20">
-                  <Building2 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                <div className="p-3 rounded-lg bg-orange-100 dark:bg-orange-900/20">
+                  <Building2 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-bold mb-1">Company Settings</h3>
                   <p className="text-sm text-muted-foreground">
-                    Manage your company profile and branding
+                    Manage your company profile and preferences
                   </p>
                 </div>
               </div>
 
-              <p className="text-muted-foreground">
-                Company settings coming soon. Configure logo, SLA targets, and more.
-              </p>
+              {activeCompany ? (
+                <div className="space-y-8">
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Building2 className="w-5 h-5" />
+                        Company Profile
+                      </h4>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Company Name</Label>
+                          <Input
+                            value={companyFormData.name}
+                            onChange={(e) =>
+                              setCompanyFormData({ ...companyFormData, name: e.target.value })
+                            }
+                            placeholder="Acme Property Management"
+                            className="mt-2"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                          <div>
+                            <Label className="font-semibold">Company Active</Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Deactivate to pause all operations
+                            </p>
+                          </div>
+                          <Switch
+                            checked={companyFormData.is_active}
+                            onCheckedChange={(checked) =>
+                              setCompanyFormData({ ...companyFormData, is_active: checked })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Globe className="w-5 h-5" />
+                        Regional Settings
+                      </h4>
+                      <div>
+                        <Label>Timezone</Label>
+                        <Select
+                          value={companyFormData.timezone}
+                          onValueChange={(value) =>
+                            setCompanyFormData({ ...companyFormData, timezone: value })
+                          }
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="America/New_York">Eastern Time</SelectItem>
+                            <SelectItem value="America/Chicago">Central Time</SelectItem>
+                            <SelectItem value="America/Denver">Mountain Time</SelectItem>
+                            <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
+                            <SelectItem value="America/Phoenix">Arizona</SelectItem>
+                            <SelectItem value="America/Anchorage">Alaska</SelectItem>
+                            <SelectItem value="Pacific/Honolulu">Hawaii</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Used for scheduling and reports
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Clock className="w-5 h-5" />
+                        Service Level Agreement
+                      </h4>
+                      <div>
+                        <Label>Response Time Target (minutes)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="1440"
+                          value={companyFormData.sla_target_minutes}
+                          onChange={(e) =>
+                            setCompanyFormData({
+                              ...companyFormData,
+                              sla_target_minutes: parseInt(e.target.value) || 15,
+                            })
+                          }
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Target time for responding to plate detections
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Bell className="w-5 h-5" />
+                        Notifications
+                      </h4>
+                      <div>
+                        <Label>Notification Email</Label>
+                        <Input
+                          type="email"
+                          value={companyFormData.notification_email}
+                          onChange={(e) =>
+                            setCompanyFormData({
+                              ...companyFormData,
+                              notification_email: e.target.value,
+                            })
+                          }
+                          placeholder="alerts@company.com"
+                          className="mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Email address for important system notifications
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <CreditCard className="w-5 h-5" />
+                        Billing & Subscription
+                      </h4>
+                      <div className="p-4 rounded-lg bg-muted/50">
+                        <p className="text-sm text-muted-foreground">
+                          Billing management coming soon. Contact support for billing inquiries.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t">
+                    <Button
+                      onClick={handleSaveCompanySettings}
+                      disabled={savingCompany}
+                      className="rounded-xl bg-[#0A84FF] hover:bg-[#0869CC] px-8"
+                    >
+                      {savingCompany ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Building2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">Loading company settings...</p>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
