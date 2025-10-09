@@ -193,16 +193,29 @@ try:
     data = json.load(sys.stdin)
     companies = data.get("companies", [])
     if not companies:
-        print("  No sites found in your portal")
+        print("  No communities found in your portal")
         sys.exit(1)
+
+    site_count = 0
     for idx, company in enumerate(companies, 1):
-        print(f"  {idx}. {company.get("name", "Unnamed")} (ID: {company.get("id", "")})")
+        print(f"  Community: {company.get("name", "Unnamed")} (ID: {company.get("id", "")})")
         sites = company.get("sites", [])
+        if not sites:
+            print(f"     (No sites in this community)")
         for site in sites:
-            print(f"     → {site.get("name", "Unnamed Site")} (ID: {site.get("id", "")})")
-except:
+            site_count += 1
+            print(f"     {site_count}. {site.get("name", "Unnamed Site")} (ID: {site.get("id", "")})")
+
+    if site_count == 0:
+        print("")
+        print("  No sites found in your community.")
+        print("  Please create a site in the portal first:")
+        print(f"  → Go to Communities → Sites → Add Site")
+        sys.exit(1)
+except Exception as e:
+    print(f"  Error parsing response: {e}")
     sys.exit(1)
-' 2>/dev/null
+'
 
             if [ $? -eq 0 ]; then
                 echo ""
