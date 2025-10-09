@@ -55,21 +55,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data: community, error } = await supabaseServer
+    // Fetch community
+    const { data: community, error: communityError } = await supabaseServer
       .from('communities')
-      .select(`
-        id,
-        name,
-        sites:sites(
-          id,
-          name
-        )
-      `)
+      .select('id, name')
       .eq('id', keyData.community_id)
       .maybeSingle();
 
-    if (error) {
-      console.error('[API Companies] Error fetching community:', error);
+    if (communityError) {
+      console.error('[API Companies] Error fetching community:', communityError);
       return NextResponse.json(
         { error: 'Failed to fetch community data' },
         { status: 500 }
@@ -83,11 +77,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Fetch sites separately
+    const { data: sites, error: sitesError } = await supabaseServer
+      .from('sites')
+      .select('id, name')
+      .eq('community_id', community.id);
+
+    if (sitesError) {
+      console.error('[API Companies] Error fetching sites:', sitesError);
+      // Continue with empty sites rather than failing
+    }
+
     return NextResponse.json({
       companies: [{
         id: community.id,
         name: community.name,
-        sites: community.sites || []
+        sites: sites || []
       }]
     });
   } catch (error: any) {
