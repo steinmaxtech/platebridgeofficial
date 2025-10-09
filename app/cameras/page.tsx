@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
-import { Camera, Video, VideoOff, Play, AlertCircle, CheckCircle2, Maximize2 } from 'lucide-react';
+import { Camera, Video, VideoOff, Play, AlertCircle, CheckCircle2, Maximize2, Film } from 'lucide-react';
 import { AnimatedCard, FadeIn } from '@/components/animated-card';
 import {
   Dialog,
@@ -50,6 +50,8 @@ export default function CamerasPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [selectedCamera, setSelectedCamera] = useState<CameraWithPod | null>(null);
   const [showStreamDialog, setShowStreamDialog] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [loadingStream, setLoadingStream] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -131,9 +133,44 @@ export default function CamerasPage() {
     );
   };
 
-  const handleViewStream = (camera: CameraWithPod) => {
+  const handleViewStream = async (camera: CameraWithPod) => {
     setSelectedCamera(camera);
     setShowStreamDialog(true);
+    setStreamUrl(null);
+    setLoadingStream(true);
+
+    try {
+      // Get signed stream token from API
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.error('No active session');
+        setLoadingStream(false);
+        return;
+      }
+
+      const response = await fetch('/api/pod/stream-token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ camera_id: camera.id })
+      });
+
+      if (!response.ok) {
+        console.error('Failed to get stream token:', await response.text());
+        setLoadingStream(false);
+        return;
+      }
+
+      const data = await response.json();
+      setStreamUrl(data.stream_url);
+    } catch (error) {
+      console.error('Error getting stream token:', error);
+    } finally {
+      setLoadingStream(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -233,7 +270,7 @@ export default function CamerasPage() {
                     </div>
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-2">
                     <Button
                       onClick={() => handleViewStream(camera)}
                       disabled={camera.status !== 'active'}
@@ -243,7 +280,7 @@ export default function CamerasPage() {
                       {camera.status === 'active' ? (
                         <>
                           <Play className="w-4 h-4 mr-2" />
-                          View Stream
+                          View Live Stream
                         </>
                       ) : (
                         <>
@@ -251,6 +288,14 @@ export default function CamerasPage() {
                           Stream Unavailable
                         </>
                       )}
+                    </Button>
+                    <Button
+                      onClick={() => router.push(`/cameras/${camera.id}/recordings`)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Film className="w-4 h-4 mr-2" />
+                      View Recordings
                     </Button>
                   </div>
                 </div>
@@ -275,19 +320,25 @@ export default function CamerasPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="aspect-video bg-black rounded-lg flex items-center justify-center relative overflow-hidden">
-              {selectedCamera?.stream_url ? (
+              {loadingStream ? (
+                <div className="text-white text-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+                  <p className="text-lg">Loading secure stream...</p>
+                </div>
+              ) : streamUrl ? (
                 <video
                   className="w-full h-full"
                   controls
                   autoPlay
-                  src={selectedCamera.stream_url}
+                  src={streamUrl}
                 >
                   Your browser does not support the video tag.
                 </video>
               ) : (
                 <div className="text-white text-center">
                   <VideoOff className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">Stream URL not configured</p>
+                  <p className="text-lg">Stream not available</p>
+                  <p className="text-sm opacity-75 mt-2">The POD may be offline or stream URL not configured</p>
                 </div>
               )}
             </div>
