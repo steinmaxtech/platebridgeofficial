@@ -46,14 +46,23 @@ async function verifyApiKey(authHeader: string | null) {
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
+    console.log('[API Companies] Auth header present:', !!authHeader);
+
     const keyData = await verifyApiKey(authHeader);
+    console.log('[API Companies] Key verification result:', keyData ? 'valid' : 'invalid');
 
     if (!keyData) {
+      console.log('[API Companies] Returning 401 - invalid key');
       return NextResponse.json(
         { error: 'Invalid or revoked API key' },
         { status: 401 }
       );
     }
+
+    console.log('[API Companies] Key data:', {
+      id: keyData.id,
+      community_id: keyData.community_id
+    });
 
     // Fetch community
     const { data: community, error: communityError } = await supabaseServer
@@ -61,6 +70,12 @@ export async function GET(request: NextRequest) {
       .select('id, name')
       .eq('id', keyData.community_id)
       .maybeSingle();
+
+    console.log('[API Companies] Community query result:', {
+      found: !!community,
+      error: communityError,
+      data: community
+    });
 
     if (communityError) {
       console.error('[API Companies] Error fetching community:', communityError);
@@ -71,6 +86,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!community) {
+      console.log('[API Companies] No community found for ID:', keyData.community_id);
       return NextResponse.json(
         { error: 'Community not found' },
         { status: 404 }
@@ -83,18 +99,28 @@ export async function GET(request: NextRequest) {
       .select('id, name')
       .eq('community_id', community.id);
 
+    console.log('[API Companies] Sites query result:', {
+      count: sites?.length || 0,
+      error: sitesError,
+      data: sites
+    });
+
     if (sitesError) {
       console.error('[API Companies] Error fetching sites:', sitesError);
       // Continue with empty sites rather than failing
     }
 
-    return NextResponse.json({
+    const response = {
       companies: [{
         id: community.id,
         name: community.name,
         sites: sites || []
       }]
-    });
+    };
+
+    console.log('[API Companies] Returning response:', JSON.stringify(response));
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('[API Companies] Error:', error);
     return NextResponse.json(
