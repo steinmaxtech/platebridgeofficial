@@ -1,24 +1,41 @@
-# PlateBridge Pod Agent Configuration
+# PlateBridge Pod Configuration
 # Copy this file to config.yaml and fill in your values
 
-# Portal Configuration (Your Cloud Dashboard)
-portal_url: "https://your-platebridge-portal.vercel.app"
-api_key: "your-api-key-here"
+# Portal connection
+portal_url: "https://your-portal.vercel.app"
+pod_api_key: "pbk_your_api_key_here"  # Get from portal /pods page
 
-# Pod/Site Identification
-site_id: "your-site-id-here"
-pod_id: "pod-front-gate"
+# Pod identification
+pod_id: "main-gate-pod"  # Unique name for this pod
+camera_id: "your-camera-uuid"  # Get from portal /cameras page
+camera_name: "Main Gate Camera"
+site_id: "your-site-uuid"  # Get from portal /properties page
+site_name: "main-gate"
+company_id: "your-company-uuid"  # Get from portal /companies page
 
-# Frigate MQTT Configuration
-frigate_mqtt_host: "localhost"
-frigate_mqtt_port: 1883
-frigate_mqtt_username: ""
-frigate_mqtt_password: ""
-frigate_mqtt_topic: "frigate/events"
+# Camera settings
+camera_rtsp_url: "rtsp://192.168.1.100:554/stream"  # Your camera's RTSP URL
+min_confidence: 0.75  # Minimum confidence for plate detection (0.0-1.0)
 
-# Detection Settings
-min_confidence: 0.7
-whitelist_refresh_interval: 300
+# Streaming configuration
+enable_streaming: true  # Enable live stream server
+stream_port: 8000  # Port for stream server
+stream_secret: "change-this-secret"  # Shared secret with portal (set POD_STREAM_SECRET in Vercel)
+public_ip: "auto"  # Public IP or "auto" to detect
 
-# Logging
-log_level: "INFO"
+# Recording configuration
+record_on_detection: true  # Auto-record when plate detected
+recordings_dir: "/tmp/recordings"  # Where to save clips temporarily
+recording_duration: 30  # Seconds to record per clip
+
+# MQTT configuration (for Frigate integration)
+enable_mqtt: true
+mqtt_host: "localhost"
+mqtt_port: 1883
+mqtt_topic: "frigate/events"
+# mqtt_username: "optional"
+# mqtt_password: "optional"
+
+# Refresh intervals
+whitelist_refresh_interval: 300  # Seconds (5 minutes)
+heartbeat_interval: 60  # Seconds (1 minute)
