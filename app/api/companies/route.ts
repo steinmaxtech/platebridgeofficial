@@ -62,8 +62,7 @@ export async function GET(request: NextRequest) {
         name,
         sites:sites(
           id,
-          name,
-          address
+          name
         )
       `)
       .eq('id', keyData.community_id)
