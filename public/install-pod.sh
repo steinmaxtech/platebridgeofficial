@@ -84,7 +84,7 @@ detect_portal_url() {
     echo "Detecting portal URL from API key..."
 
     local test_urls=(
-        "https://zp1v56uxy8rdx5ypatb0ockcb9tr6a-oci3--3000--96435430.local-credentialless.webcontainer-api.io"
+        "https://platebridgeofficial.vercel.app"
         "https://platebridge.vercel.app"
         "https://app.platebridge.com"
         "http://localhost:3000"
