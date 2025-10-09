@@ -6,7 +6,7 @@ import { useCompany } from '@/lib/community-context';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { RoleSwitcher } from '@/components/role-switcher';
-import { Moon, Sun, LayoutDashboard, List, Building2, Users, FileText, Settings, Building, Home, MapPin, Camera } from 'lucide-react';
+import { Moon, Sun, LayoutDashboard, List, Building2, Users, FileText, Settings, Building, Home, MapPin, Camera, Server } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'admin', 'manager', 'viewer', 'resident'] },
     { href: '/companies', label: 'Companies', icon: Building, roles: ['owner', 'admin'] },
     { href: '/communities', label: 'Communities', icon: Home, roles: ['owner', 'admin', 'manager'] },
-    { href: '/properties', label: 'Sites (Pods)', icon: MapPin, roles: ['owner', 'admin', 'manager'] },
+    { href: '/properties', label: 'Sites', icon: MapPin, roles: ['owner', 'admin', 'manager'] },
+    { href: '/pods', label: 'PODs', icon: Server, roles: ['owner', 'admin', 'manager'] },
     { href: '/cameras', label: 'Cameras', icon: Camera, roles: ['owner', 'admin', 'manager', 'viewer'] },
     { href: '/users', label: 'Users', icon: Users, roles: ['owner', 'admin', 'manager'] },
     { href: '/plates', label: 'Plates', icon: List, roles: ['owner', 'admin', 'manager', 'resident'] },
