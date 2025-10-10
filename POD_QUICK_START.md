@@ -1,13 +1,15 @@
-# POD Quick Start Guide
+# Connect Your First POD - Quick Start Guide
 
 Get your PlateBridge POD up and running in 10 minutes!
 
 ## What is a POD?
 
 A POD is a device (Raspberry Pi, NUC, or any Linux box) at your gate that:
-- Runs cameras with license plate detection
+- Connects to IP cameras with license plate detection
 - Streams live video to your portal
 - Records clips when plates are detected
+- Auto-reports detections to portal
+- Auto-registers itself and cameras
 - Communicates with your cloud portal for access control
 
 ## Quick Setup (3 Steps)
