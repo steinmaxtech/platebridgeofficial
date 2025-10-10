@@ -346,11 +346,21 @@ class CompletePodAgent:
             stream_port = self.config.get('stream_port', 8000)
             stream_url = f"https://{public_ip}:{stream_port}/stream"
 
+            cameras = []
+            if self.config.get('camera_id') and self.config.get('camera_name'):
+                cameras.append({
+                    'camera_id': self.config['camera_id'],
+                    'name': self.config['camera_name'],
+                    'rtsp_url': self.config.get('camera_rtsp_url', ''),
+                    'position': self.config.get('camera_position', 'main entrance')
+                })
+
             payload = {
                 'pod_id': self.config['pod_id'],
-                'camera_id': self.config['camera_id'],
-                'stream_url': stream_url,
-                'status': 'online'
+                'ip_address': public_ip,
+                'firmware_version': '1.0.0',
+                'status': 'online',
+                'cameras': cameras
             }
 
             response = requests.post(url, headers=headers, json=payload, timeout=5)

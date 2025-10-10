@@ -6,12 +6,10 @@ portal_url: "https://your-portal.vercel.app"
 pod_api_key: "pbk_your_api_key_here"  # Get from portal /pods page
 
 # Pod identification
-pod_id: "main-gate-pod"  # Unique name for this pod
-camera_id: "your-camera-uuid"  # Get from portal /cameras page
-camera_name: "Main Gate Camera"
-site_id: "your-site-uuid"  # Get from portal /properties page
-site_name: "main-gate"
-company_id: "your-company-uuid"  # Get from portal /companies page
+pod_id: "main-gate-pod"  # Unique name for this pod (auto-registers)
+camera_id: "gate-camera-1"  # Unique ID for this camera (auto-registers)
+camera_name: "Main Gate Camera"  # Human-readable name
+camera_position: "main entrance"  # Optional: where camera is located
 
 # Camera settings
 camera_rtsp_url: "rtsp://192.168.1.100:554/stream"  # Your camera's RTSP URL

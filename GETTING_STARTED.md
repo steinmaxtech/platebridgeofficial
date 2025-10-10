@@ -43,41 +43,21 @@ https://your-platebridge.vercel.app
    - Site ID: "main-gate"
 4. Click **Create**
 
-### 1.4 Create POD
+### 1.4 Generate POD API Key
 
-1. Go to **PODs** page
-2. Click **Add POD**
-3. Fill in:
-   - Name: "Main Gate POD"
-   - Site: Select "Main Gate"
-4. Click **Create**
-5. **Copy the POD ID** - you'll need this
-
-### 1.5 Generate POD API Key
-
-1. Still on **PODs** page
-2. Click **Generate API Key** for your POD
+1. Go to **Settings** → **POD API Keys**
+2. Click **Generate API Key**
 3. Fill in:
    - Name: "Main Gate POD Key"
    - Community: Your community
-   - POD ID: Your POD ID
+   - POD ID: "main-gate-pod" (choose any unique ID)
 4. Click **Generate**
 5. **IMPORTANT: Copy the API key immediately** (starts with `pbk_`)
 6. You won't be able to see it again!
 
-### 1.6 Create Camera
+**Note:** The POD and camera will auto-register when the agent starts and sends its first heartbeat!
 
-1. Go to **Cameras** page
-2. Click **Add Camera**
-3. Fill in:
-   - Name: "Gate Camera 1"
-   - POD: Select your POD
-   - Stream URL: `https://pod-ip:8000/stream` (use your POD's IP)
-   - Position: "Main entrance"
-4. Click **Create**
-5. **Copy the Camera ID**
-
-### 1.7 Add Test Plate to Whitelist
+### 1.5 Add Test Plate to Whitelist
 
 1. Go to **Plates** page
 2. Click **Add Plate**
@@ -192,11 +172,13 @@ Update these values:
 ```yaml
 # Portal connection
 portal_url: "https://your-platebridge.vercel.app"
-pod_api_key: "pbk_xxxxx"  # From step 1.5
+pod_api_key: "pbk_xxxxx"  # From step 1.4
 
-# Pod identification
-pod_id: "your-pod-id"  # From step 1.4
-camera_id: "your-camera-uuid"  # From step 1.6
+# Pod identification (will auto-register!)
+pod_id: "main-gate-pod"  # Choose any unique ID
+camera_id: "gate-camera-1"  # Choose any unique ID for camera
+camera_name: "Main Gate Camera"  # Human-readable name
+camera_position: "main entrance"  # Optional
 
 # Camera settings
 camera_rtsp_url: "rtsp://camera-ip:554/stream"
@@ -221,6 +203,8 @@ enable_streaming: true
 stream_port: 8000
 stream_secret: "your-secret-here"  # Same as POD_STREAM_SECRET in Vercel
 ```
+
+**Note:** POD and camera IDs can be anything - they'll be created automatically on first heartbeat!
 
 ### 3.4 Create Recordings Directory
 

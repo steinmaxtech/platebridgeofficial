@@ -45,27 +45,146 @@ async function verifyApiKey(authHeader: string | null) {
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
-    const podData = await verifyApiKey(authHeader);
+    const apiKeyData = await verifyApiKey(authHeader);
 
-    if (!podData) {
+    if (!apiKeyData) {
       return NextResponse.json(
         { error: 'Invalid or revoked API key' },
         { status: 401 }
       );
     }
 
+    const body = await request.json();
+    const {
+      pod_id,
+      ip_address,
+      firmware_version,
+      status = 'online',
+      cameras = []
+    } = body;
+
+    if (!pod_id) {
+      return NextResponse.json(
+        { error: 'pod_id is required' },
+        { status: 400 }
+      );
+    }
+
     const keyHash = await hashApiKey(authHeader!.substring(7));
+
+    const { data: keyDetails } = await supabaseServer
+      .from('pod_api_keys')
+      .select('community_id, pod_id')
+      .eq('key_hash', keyHash)
+      .single();
+
+    if (!keyDetails) {
+      return NextResponse.json({ error: 'API key not found' }, { status: 404 });
+    }
+
+    const { data: community } = await supabaseServer
+      .from('communities')
+      .select('id, company_id, sites(id)')
+      .eq('id', keyDetails.community_id)
+      .single();
+
+    if (!community || !community.sites || community.sites.length === 0) {
+      return NextResponse.json(
+        { error: 'Community has no sites configured' },
+        { status: 400 }
+      );
+    }
+
+    const siteId = (community.sites as any)[0].id;
+
+    const { data: existingPod } = await supabaseServer
+      .from('pods')
+      .select('id')
+      .eq('id', pod_id)
+      .maybeSingle();
+
+    if (existingPod) {
+      await supabaseServer
+        .from('pods')
+        .update({
+          last_heartbeat: new Date().toISOString(),
+          status,
+          ip_address,
+          firmware_version,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', pod_id);
+    } else {
+      const dummyHash = await hashApiKey(`dummy-${pod_id}-${Date.now()}`);
+
+      await supabaseServer
+        .from('pods')
+        .insert({
+          id: pod_id,
+          site_id: siteId,
+          name: keyDetails.pod_id,
+          api_key_hash: dummyHash,
+          last_heartbeat: new Date().toISOString(),
+          status,
+          ip_address,
+          firmware_version
+        });
+    }
+
+    for (const camera of cameras) {
+      const { camera_id, name, rtsp_url, position } = camera;
+
+      if (!camera_id || !name) continue;
+
+      const streamUrl = ip_address
+        ? `https://${ip_address}:8000/stream`
+        : `https://pod-${pod_id}.local:8000/stream`;
+
+      const { data: existingCamera } = await supabaseServer
+        .from('cameras')
+        .select('id')
+        .eq('id', camera_id)
+        .maybeSingle();
+
+      if (existingCamera) {
+        await supabaseServer
+          .from('cameras')
+          .update({
+            name,
+            stream_url: streamUrl,
+            position: position || null,
+            status: 'active',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', camera_id);
+      } else {
+        await supabaseServer
+          .from('cameras')
+          .insert({
+            id: camera_id,
+            pod_id,
+            name,
+            stream_url: streamUrl,
+            position: position || null,
+            status: 'active'
+          });
+      }
+    }
 
     await supabaseServer
       .from('pod_api_keys')
       .update({ last_used_at: new Date().toISOString() })
       .eq('key_hash', keyHash);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      pod_id,
+      cameras_registered: cameras.length
+    });
   } catch (error: any) {
     console.error('[POD Heartbeat] Error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     );
   }
