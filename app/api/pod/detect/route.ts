@@ -12,7 +12,7 @@ async function hashApiKey(apiKey: string): Promise<string> {
   return hashHex;
 }
 
-async function verifyApiKey(authHeader: string | null): Promise<{ valid: boolean; site_id?: string; pod_id?: string }> {
+async function verifyApiKey(authHeader: string | null): Promise<{ valid: boolean; community_id?: string; pod_id?: string }> {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { valid: false };
   }
@@ -28,7 +28,7 @@ async function verifyApiKey(authHeader: string | null): Promise<{ valid: boolean
 
     const { data: keyData, error } = await supabaseServer
       .from('pod_api_keys')
-      .select('site_id, pod_id, revoked_at')
+      .select('community_id, pod_id, revoked_at')
       .eq('key_hash', keyHash)
       .maybeSingle();
 
@@ -43,7 +43,7 @@ async function verifyApiKey(authHeader: string | null): Promise<{ valid: boolean
 
     return {
       valid: true,
-      site_id: keyData.site_id,
+      community_id: keyData.community_id,
       pod_id: keyData.pod_id,
     };
   } catch (error) {
@@ -87,6 +87,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Site not found', action: 'deny' },
         { status: 404 }
+      );
+    }
+
+    if (site.community_id !== keyVerification.community_id) {
+      console.error('[POD Detection] Community mismatch - POD not authorized for this site');
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: POD not authorized for this community', action: 'deny' },
+        { status: 403 }
       );
     }
 
