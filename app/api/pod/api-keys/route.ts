@@ -15,11 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, site_id, pod_id } = await request.json();
+    const { name, community_id, pod_id } = await request.json();
 
-    if (!name || !site_id || !pod_id) {
+    if (!name || !community_id || !pod_id) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, site_id, pod_id' },
+        { error: 'Missing required fields: name, community_id, pod_id' },
         { status: 400 }
       );
     }
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       .from('pod_api_keys')
       .insert({
         name,
-        site_id,
+        community_id,
         pod_id,
         key_hash: hashedKey,
         created_by: user.id,
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       api_key: apiKey,
       id: keyData.id,
       name: keyData.name,
-      site_id: keyData.site_id,
+      community_id: keyData.community_id,
       pod_id: keyData.pod_id,
       created_at: keyData.created_at,
       warning: 'Save this API key now. You will not be able to see it again.',
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     const { data: keys, error } = await supabaseServer
       .from('pod_api_keys')
-      .select('id, name, site_id, pod_id, created_at, last_used_at')
+      .select('id, name, community_id, pod_id, created_at, last_used_at')
       .order('created_at', { ascending: false });
 
     if (error) {
