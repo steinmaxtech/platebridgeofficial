@@ -4,6 +4,60 @@ Get your PlateBridge POD running in 30 minutes or less!
 
 ---
 
+## 📦 Prerequisites
+
+Before you start, you'll need:
+
+**Hardware:**
+- POD device (8GB+ storage, 1GB+ RAM recommended)
+- USB camera or IP camera
+- Network connection (Ethernet or WiFi)
+- For dual-NIC setup: Device with 2 Ethernet ports
+
+**Software:**
+- Ubuntu Server 24.04 LTS ([Download](https://ubuntu.com/download/server))
+- Internet connection for initial setup
+
+**Portal Account:**
+- PlateBridge portal access
+- Site created in portal
+- Note your portal URL and site ID
+
+---
+
+## 📥 Quick Clone (All Methods)
+
+**Get the PlateBridge software:**
+
+```bash
+# Install git
+sudo apt update && sudo apt install -y git
+
+# Clone repository
+git clone https://github.com/your-org/platebridge.git
+cd platebridge/pod-agent
+
+# Make scripts executable
+chmod +x *.sh
+```
+
+**Or download scripts individually:**
+```bash
+# Create directory
+mkdir -p ~/platebridge/pod-agent && cd ~/platebridge/pod-agent
+
+# Download scripts
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/setup.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/network-config.sh -o network-config.sh
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/discover-cameras.sh -o discover-cameras.sh
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/config-dual-nic.yaml -o config-dual-nic.yaml
+
+# Make executable
+chmod +x *.sh
+```
+
+---
+
 ## 🎯 Choose Your Path
 
 ### **Method 1: Golden Image (Production) - 10 min**
@@ -115,19 +169,36 @@ You should see:
 sudo apt update && sudo apt upgrade -y
 ```
 
-## Step 2: Run Install Script
+## Step 2: Clone PlateBridge Repository
 
-**Download from portal:**
+```bash
+# Install git
+sudo apt install -y git
+
+# Clone the repository
+git clone https://github.com/your-org/platebridge.git
+cd platebridge
+
+# Or download the scripts directly
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/setup.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/network-config.sh -o network-config.sh
+curl -fsSL https://raw.githubusercontent.com/your-org/platebridge/main/pod-agent/discover-cameras.sh -o discover-cameras.sh
+chmod +x *.sh
+```
+
+## Step 3: Run Install Script
+
+**From cloned repository:**
+```bash
+cd platebridge/pod-agent
+sudo ./setup.sh
+```
+
+**Or download from portal:**
 ```bash
 curl -fsSL https://your-portal.platebridge.io/install-pod.sh -o install-pod.sh
 chmod +x install-pod.sh
 sudo ./install-pod.sh
-```
-
-**Or use the public installation script:**
-```bash
-# Interactive installation
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/platebridge/pod/main/install.sh)"
 ```
 
 **Script will prompt:**
@@ -145,7 +216,7 @@ Enter Site ID: abc-123-def-456
 
 **Takes 10-15 minutes**
 
-## Step 3: Verify
+## Step 4: Verify
 
 ```bash
 # Check services
@@ -164,7 +235,16 @@ docker compose logs -f
 
 # 🐳 Method 3: Manual Docker (Quick Test)
 
-## Step 1: Install Docker
+## Step 1: Clone Repository
+
+```bash
+# Install git and clone repo
+sudo apt install -y git
+git clone https://github.com/your-org/platebridge.git
+cd platebridge/pod-agent
+```
+
+## Step 2: Install Docker
 
 ```bash
 # Quick Docker install
@@ -173,8 +253,16 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-## Step 2: Create Docker Compose
+## Step 3: Create Docker Compose
 
+**Option A: Use provided config**
+```bash
+# Copy example config
+cp config-dual-nic.yaml /opt/platebridge/config.yaml
+nano /opt/platebridge/config.yaml
+```
+
+**Option B: Create from scratch**
 ```bash
 mkdir ~/platebridge-pod
 cd ~/platebridge-pod
@@ -213,7 +301,7 @@ services:
       - "8554:8554"
 ```
 
-## Step 3: Configure
+## Step 4: Configure
 
 **Create `.env` file:**
 ```bash
@@ -228,7 +316,7 @@ PORTAL_URL=https://your-portal.platebridge.io
 3. Click "Add POD"
 4. Copy POD_ID and API_KEY
 
-## Step 4: Start
+## Step 5: Start
 
 ```bash
 docker compose pull
@@ -425,25 +513,51 @@ sudo rm /var/lib/platebridge/initialized && sudo reboot
 
 # 🆘 Need Help?
 
+**Repository & Code:**
+- GitHub: `https://github.com/your-org/platebridge`
+- Clone: `git clone https://github.com/your-org/platebridge.git`
+- Issues: `https://github.com/your-org/platebridge/issues`
+
 **Documentation:**
 - Full guide: `pod-agent/golden-image/GOLDEN_IMAGE_GUIDE.md`
+- Dual-NIC setup: `POD_DUAL_NIC_SETUP.md`
 - POD setup: `POD_SETUP_GUIDE.md`
 - Portal docs: https://docs.platebridge.io
 
 **Support:**
 - Email: support@platebridge.io
 - Portal: Click "Help" button
+- GitHub Issues: Report bugs and request features
 
 ---
 
 # ✅ Summary
 
-**Fastest Path:**
+**All methods start with:**
+```bash
+git clone https://github.com/your-org/platebridge.git
+cd platebridge/pod-agent
+```
+
+**Then choose your path:**
+
+**Method 1: Golden Image (Production)**
 1. Flash golden image → 2 min
 2. Create config USB → 1 min
 3. Boot POD → 3 min
 4. Verify in portal → 1 min
+**Total: 7 minutes! 🚀**
 
-**Total: 7 minutes to running POD! 🚀**
+**Method 2: Auto Install Script (Development)**
+1. Clone repo → 1 min
+2. Run setup.sh → 15 min
+3. Verify → 1 min
+**Total: 17 minutes! 🛠️**
+
+**Method 3: Manual Docker (Testing)**
+1. Clone repo → 1 min
+2. Install Docker → 3 min
+3. Configure & start → 1 min
+**Total: 5 minutes! 🐳**
 
 Choose your method, follow the steps, and you'll have a POD running in no time!
