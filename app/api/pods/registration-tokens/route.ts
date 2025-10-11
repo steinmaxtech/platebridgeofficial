@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
@@ -9,14 +9,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - No auth header' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = supabaseServer;
+    const authToken = authHeader.replace('Bearer ', '');
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const supabaseAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(authToken);
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const { searchParams } = new URL(request.url);
     const communityId = searchParams.get('community_id');
@@ -63,19 +72,51 @@ export async function POST(request: NextRequest) {
     }
 
     const authToken = authHeader.replace('Bearer ', '');
-    const supabase = supabaseServer;
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authToken);
+    const supabaseAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(authToken);
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
+      console.error('Auth error:', userError);
+      return NextResponse.json({
+        error: 'Unauthorized - Invalid token',
+        details: userError?.message
+      }, { status: 401 });
     }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const body = await request.json();
     const { community_id, expires_in_hours = 24, max_uses = 1, notes } = body;
 
     if (!community_id) {
       return NextResponse.json({ error: 'community_id is required' }, { status: 400 });
+    }
+
+    const { data: membership, error: membershipError } = await supabase
+      .from('memberships')
+      .select('role, companies!inner(id, communities!inner(id))')
+      .eq('user_id', user.id)
+      .eq('companies.communities.id', community_id)
+      .maybeSingle();
+
+    if (membershipError || !membership) {
+      return NextResponse.json({
+        error: 'Access denied - You do not have permission for this community'
+      }, { status: 403 });
+    }
+
+    if (!['owner', 'admin', 'manager'].includes(membership.role)) {
+      return NextResponse.json({
+        error: 'Access denied - Insufficient permissions'
+      }, { status: 403 });
     }
 
     const token = `pbreg_${crypto.randomBytes(32).toString('hex')}`;
@@ -118,14 +159,23 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized - No auth header' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = supabaseServer;
+    const authToken = authHeader.replace('Bearer ', '');
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const supabaseAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(authToken);
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const { searchParams } = new URL(request.url);
     const tokenId = searchParams.get('id');
