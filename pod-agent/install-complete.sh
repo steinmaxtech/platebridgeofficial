@@ -921,6 +921,28 @@ EOF
         print_warning "config.example.yaml not found in $SCRIPT_DIR"
     fi
 
+    # Copy .dockerignore
+    if [ -f "$SCRIPT_DIR/.dockerignore" ]; then
+        cp "$SCRIPT_DIR/.dockerignore" $INSTALL_DIR/docker/
+        print_success ".dockerignore copied"
+    fi
+
+    # Verify all required files are present
+    print_step "Verifying Docker build files..."
+    if [ ! -f "$INSTALL_DIR/docker/complete_pod_agent.py" ]; then
+        print_error "Missing: complete_pod_agent.py"
+        return 1
+    fi
+    if [ ! -f "$INSTALL_DIR/docker/Dockerfile" ]; then
+        print_error "Missing: Dockerfile"
+        return 1
+    fi
+    if [ ! -f "$INSTALL_DIR/docker/requirements.txt" ]; then
+        print_error "Missing: requirements.txt"
+        return 1
+    fi
+    print_success "All Docker build files present"
+
     chown -R $POD_USER:$POD_USER $INSTALL_DIR/docker
 
     print_success "Configuration saved"
@@ -929,14 +951,20 @@ EOF
 start_services() {
     print_header "Starting Services"
 
+    print_step "Checking Docker build directory contents..."
+    echo "Contents of $INSTALL_DIR/docker/:"
+    ls -la $INSTALL_DIR/docker/
+    echo ""
+
     print_step "Building Docker image locally..."
     cd $INSTALL_DIR/docker
 
     if [ -f "Dockerfile" ]; then
+        echo "Building with context: $(pwd)"
         docker build -t platebridge-pod-agent:latest .
         print_success "Docker image built"
     else
-        print_error "Dockerfile not found"
+        print_error "Dockerfile not found in $(pwd)"
         return 1
     fi
 
