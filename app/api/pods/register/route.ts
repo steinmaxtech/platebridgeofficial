@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -21,7 +21,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = supabaseServer;
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
     const { data: tokenData, error: tokenError } = await supabase
       .from('pod_registration_tokens')
