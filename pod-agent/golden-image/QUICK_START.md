@@ -38,7 +38,7 @@ sudo ./create-disk-image.sh
 
 ## What Gets Installed
 
-✅ Ubuntu 22.04 LTS
+✅ Ubuntu 24.04 LTS
 ✅ Docker + Compose v2
 ✅ PlateBridge auto-provisioning
 ✅ Security hardening (UFW, fail2ban)

@@ -62,7 +62,7 @@ echo ""
 
 log_info "📋 PHASE 1: System Requirements"
 
-test_component "Ubuntu 22.04 LTS" "grep -q '22.04' /etc/os-release"
+test_component "Ubuntu 24.04 LTS" "grep -q '24.04' /etc/os-release"
 test_component "64-bit architecture" "[ $(uname -m) == 'x86_64' ]"
 test_component "Systemd init" "[ -d /run/systemd/system ]"
 

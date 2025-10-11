@@ -9,7 +9,7 @@ This guide walks through creating, testing, and deploying the PlateBridge POD Go
 ## 📦 What's Included
 
 ### Base System
-- **OS:** Ubuntu 22.04 LTS (64-bit)
+- **OS:** Ubuntu 24.04 LTS (64-bit)
 - **Kernel:** Latest stable Linux kernel
 - **Init:** systemd
 
@@ -42,7 +42,7 @@ This guide walks through creating, testing, and deploying the PlateBridge POD Go
 ### Prerequisites
 
 **Hardware Requirements:**
-- Clean Ubuntu 22.04 LTS installation
+- Clean Ubuntu 24.04 LTS installation
 - Minimum 16GB disk space (recommended: 32GB+)
 - 2GB+ RAM
 - Network connectivity
@@ -55,7 +55,7 @@ This guide walks through creating, testing, and deploying the PlateBridge POD Go
 ### Step 1: Prepare Base System
 
 ```bash
-# Install Ubuntu 22.04 LTS
+# Install Ubuntu 24.04 LTS
 # Use minimal server installation
 # Configure network (DHCP recommended)
 # Update system
@@ -546,7 +546,7 @@ docker compose logs
 
 ### Golden Image Package Should Include:
 
-- [x] **Base OS:** Ubuntu 22.04 LTS
+- [x] **Base OS:** Ubuntu 24.04 LTS
 - [x] **Docker + Compose v2:** Latest stable
 - [x] **platebridge-init.sh:** Auto-provisioning script
 - [x] **systemd services:** Auto-start configuration

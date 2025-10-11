@@ -13,7 +13,7 @@ All requirements for creating a production-ready POD base image have been comple
 **File:** `pod-agent/golden-image/build-golden-image.sh`
 
 **Capabilities:**
-- ✅ Installs Ubuntu 22.04 LTS base
+- ✅ Installs Ubuntu 24.04 LTS base
 - ✅ Installs Docker CE (latest stable)
 - ✅ Installs Docker Compose v2
 - ✅ Sets up PlateBridge directory structure
@@ -181,7 +181,7 @@ cd pod-agent/golden-image
 sudo ./build-golden-image.sh
 ```
 
-**Result:** Production-ready Ubuntu 22.04 system with all components
+**Result:** Production-ready Ubuntu 24.04 system with all components
 
 ---
 
@@ -266,7 +266,7 @@ site_id: abc-123-def-456
 ### System Requirements
 
 **Base OS:**
-- Ubuntu 22.04 LTS (Jammy Jellyfish)
+- Ubuntu 24.04 LTS (Noble Numbat)
 - Linux kernel 5.15+
 - 64-bit (x86_64) architecture
 - Systemd init system
@@ -398,7 +398,7 @@ pod-agent/golden-image/
 
 ### Requirements Met
 
-- [x] **Ubuntu 22.04 LTS** - Base operating system
+- [x] **Ubuntu 24.04 LTS** - Base operating system
 - [x] **Docker + Compose v2** - Container runtime
 - [x] **platebridge-init.sh** - Auto-provisioning script
 - [x] **Pre-configured SSH** - Remote access via Tailscale

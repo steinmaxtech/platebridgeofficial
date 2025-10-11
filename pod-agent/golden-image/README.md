@@ -49,7 +49,7 @@ sudo dd if=output/platebridge-pod-v1.0.0.img of=/dev/sdX bs=4M status=progress
 ## 📋 Prerequisites
 
 **System Requirements:**
-- Ubuntu 22.04 LTS (clean installation)
+- Ubuntu 24.04 LTS (clean installation)
 - 16GB+ disk space (32GB recommended)
 - 2GB+ RAM
 - Root/sudo access
@@ -67,7 +67,7 @@ sudo dd if=output/platebridge-pod-v1.0.0.img of=/dev/sdX bs=4M status=progress
 
 ### Step 1: Prepare Base System
 
-Start with a clean Ubuntu 22.04 LTS installation:
+Start with a clean Ubuntu 24.04 LTS installation:
 
 ```bash
 # Update system
@@ -119,7 +119,7 @@ sudo ./test-golden-image.sh
 ```
 
 **What it tests:**
-- ✅ System requirements (Ubuntu 22.04, 64-bit, systemd)
+- ✅ System requirements (Ubuntu 24.04, 64-bit, systemd)
 - ✅ Docker installation and configuration
 - ✅ PlateBridge system files and directories
 - ✅ Systemd services (init, heartbeat)
