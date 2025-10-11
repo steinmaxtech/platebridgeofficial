@@ -884,15 +884,41 @@ stream_port: 8000
 recordings_dir: "/recordings"
 EOF
 
-    # Copy agent Python file to docker directory
-    print_step "Copying agent files to docker directory..."
+    # Copy all Docker build files to docker directory
+    print_step "Copying Docker build files to docker directory..."
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # Copy Python agent
     if [ -f "$SCRIPT_DIR/complete_pod_agent.py" ]; then
         cp "$SCRIPT_DIR/complete_pod_agent.py" $INSTALL_DIR/docker/
-        print_success "Agent files copied"
+        print_success "Agent Python file copied"
     else
         print_warning "complete_pod_agent.py not found in $SCRIPT_DIR"
         print_warning "Docker build will fail without this file"
+    fi
+
+    # Copy Dockerfile
+    if [ -f "$SCRIPT_DIR/Dockerfile" ]; then
+        cp "$SCRIPT_DIR/Dockerfile" $INSTALL_DIR/docker/
+        print_success "Dockerfile copied"
+    else
+        print_warning "Dockerfile not found in $SCRIPT_DIR"
+    fi
+
+    # Copy requirements.txt
+    if [ -f "$SCRIPT_DIR/requirements.txt" ]; then
+        cp "$SCRIPT_DIR/requirements.txt" $INSTALL_DIR/docker/
+        print_success "requirements.txt copied"
+    else
+        print_warning "requirements.txt not found in $SCRIPT_DIR"
+    fi
+
+    # Copy config example
+    if [ -f "$SCRIPT_DIR/config.example.yaml" ]; then
+        cp "$SCRIPT_DIR/config.example.yaml" $INSTALL_DIR/docker/
+        print_success "config.example.yaml copied"
+    else
+        print_warning "config.example.yaml not found in $SCRIPT_DIR"
     fi
 
     chown -R $POD_USER:$POD_USER $INSTALL_DIR/docker
