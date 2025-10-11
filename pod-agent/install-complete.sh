@@ -218,6 +218,28 @@ EOF
 configure_dhcp() {
     print_header "Configuring DHCP Server (dnsmasq)"
 
+    # Disable systemd-resolved to prevent DNS port conflict
+    print_step "Disabling systemd-resolved (conflicts with dnsmasq)..."
+    systemctl disable systemd-resolved
+    systemctl stop systemd-resolved
+
+    # Remove symlink to systemd-resolved
+    if [ -L /etc/resolv.conf ]; then
+        rm /etc/resolv.conf
+    fi
+
+    # Create static resolv.conf
+    print_step "Creating static DNS configuration..."
+    cat > /etc/resolv.conf << EOF
+# Static DNS configuration (systemd-resolved disabled)
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+nameserver 1.1.1.1
+EOF
+
+    # Make it immutable so nothing overwrites it
+    chattr +i /etc/resolv.conf
+
     # Backup existing config
     if [ -f /etc/dnsmasq.conf ]; then
         cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup
@@ -227,20 +249,61 @@ configure_dhcp() {
     print_step "Creating DHCP configuration..."
     cat > /etc/dnsmasq.d/platebridge-cameras.conf << EOF
 # PlateBridge Camera DHCP Configuration
+# Only bind to camera network interface
 interface=$LAN_INTERFACE
 bind-interfaces
+
+# DHCP range for cameras
 dhcp-range=$DHCP_RANGE_START,$DHCP_RANGE_END,24h
+
+# Gateway (this POD)
 dhcp-option=3,$LAN_IP
+
+# DNS servers for cameras
 dhcp-option=6,8.8.8.8,8.8.4.4
+
+# Don't read /etc/resolv.conf for upstream servers
+no-resolv
+
+# Use these DNS servers for camera queries
+server=8.8.8.8
+server=8.8.4.4
+
+# Logging
 log-dhcp
 log-queries
+
+# Don't bind to port 53 on all interfaces (only LAN)
+no-hosts
+expand-hosts
+domain=platebridge.local
+
+# Cache size
+cache-size=1000
 EOF
+
+    # Test dnsmasq configuration
+    print_step "Testing dnsmasq configuration..."
+    if dnsmasq --test -C /etc/dnsmasq.conf; then
+        print_success "dnsmasq configuration valid"
+    else
+        print_error "dnsmasq configuration has errors"
+        return 1
+    fi
 
     print_step "Enabling and starting dnsmasq..."
     systemctl enable dnsmasq
     systemctl restart dnsmasq
 
-    print_success "DHCP server configured"
+    # Wait a moment and check status
+    sleep 2
+    if systemctl is-active --quiet dnsmasq; then
+        print_success "DHCP server configured and running"
+    else
+        print_error "dnsmasq failed to start. Checking logs..."
+        journalctl -u dnsmasq -n 20 --no-pager
+        return 1
+    fi
 }
 
 configure_firewall() {
