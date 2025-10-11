@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
     const { data: keys, error } = await supabaseServer
       .from('pod_api_keys')
       .select('id, name, community_id, pod_id, created_at, last_used_at')
+      .is('revoked_at', null)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -129,7 +130,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabaseServer
       .from('pod_api_keys')
-      .delete()
+      .update({ revoked_at: new Date().toISOString() })
       .eq('id', keyId);
 
     if (error) {
