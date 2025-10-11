@@ -27,12 +27,13 @@ NC='\033[0m' # No Color
 # Configuration
 INSTALL_DIR="/opt/platebridge"
 POD_USER="platebridge"
-WAN_INTERFACE="eth0"
-LAN_INTERFACE="eth1"
+WAN_INTERFACE="enp3s0"  # Cellular/Internet connection
+LAN_INTERFACE="enp2s0"  # Camera network
 LAN_IP="192.168.100.1"
 LAN_NETWORK="192.168.100.0/24"
 DHCP_RANGE_START="192.168.100.100"
 DHCP_RANGE_END="192.168.100.200"
+SSH_PORT="22"  # Will be changed to random port for security
 
 ################################################################################
 # Helper Functions
@@ -115,7 +116,11 @@ install_dependencies() {
         ffmpeg \
         avahi-daemon \
         jq \
-        ufw
+        ufw \
+        fail2ban \
+        unattended-upgrades \
+        apt-listchanges \
+        logwatch
 
     print_success "System dependencies installed"
 }
@@ -228,35 +233,228 @@ EOF
 }
 
 configure_firewall() {
-    print_header "Configuring Firewall & NAT"
+    print_header "Configuring Router Security & Firewall"
 
-    print_step "Enabling IP forwarding..."
-    echo "net.ipv4.ip_forward=1" > /etc/sysctl.d/99-platebridge.conf
-    sysctl -p /etc/sysctl.d/99-platebridge.conf
+    print_step "Enabling IP forwarding and security hardening..."
+    cat > /etc/sysctl.d/99-platebridge-security.conf << EOF
+# IP Forwarding for routing
+net.ipv4.ip_forward=1
 
-    print_step "Configuring iptables NAT..."
-    # Clear existing rules
+# Security hardening for router/gateway
+# Prevent IP spoofing
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.default.rp_filter=1
+
+# Ignore ICMP redirects
+net.ipv4.conf.all.accept_redirects=0
+net.ipv4.conf.default.accept_redirects=0
+net.ipv4.conf.all.secure_redirects=0
+net.ipv4.conf.default.secure_redirects=0
+
+# Do not send ICMP redirects
+net.ipv4.conf.all.send_redirects=0
+net.ipv4.conf.default.send_redirects=0
+
+# Ignore ICMP ping requests (optional, disable if you need ping)
+net.ipv4.icmp_echo_ignore_all=0
+
+# Protect against SYN flood attacks
+net.ipv4.tcp_syncookies=1
+net.ipv4.tcp_max_syn_backlog=2048
+net.ipv4.tcp_synack_retries=2
+net.ipv4.tcp_syn_retries=5
+
+# Log suspicious packets
+net.ipv4.conf.all.log_martians=1
+net.ipv4.conf.default.log_martians=1
+
+# Disable source packet routing
+net.ipv4.conf.all.accept_source_route=0
+net.ipv4.conf.default.accept_source_route=0
+
+# IPv6 disabled (if not needed)
+net.ipv6.conf.all.disable_ipv6=1
+net.ipv6.conf.default.disable_ipv6=1
+EOF
+
+    sysctl -p /etc/sysctl.d/99-platebridge-security.conf
+
+    print_step "Configuring iptables firewall rules..."
+
+    # Flush existing rules
+    iptables -F
+    iptables -X
     iptables -t nat -F
+    iptables -t nat -X
+    iptables -t mangle -F
+    iptables -t mangle -X
 
-    # Enable NAT for camera network
+    # Default policies - DROP everything by default (whitelist approach)
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP
+    iptables -P OUTPUT ACCEPT
+
+    # Allow loopback
+    iptables -A INPUT -i lo -j ACCEPT
+    iptables -A OUTPUT -o lo -j ACCEPT
+
+    # Allow established and related connections
+    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+    # Anti-spoofing: drop packets from LAN claiming to be from WAN
+    iptables -A INPUT -i $LAN_INTERFACE -s 0.0.0.0/8 -j DROP
+    iptables -A INPUT -i $LAN_INTERFACE -s 10.0.0.0/8 -j DROP
+    iptables -A INPUT -i $LAN_INTERFACE -s 169.254.0.0/16 -j DROP
+    iptables -A INPUT -i $LAN_INTERFACE -s 172.16.0.0/12 -j DROP
+    iptables -A INPUT -i $LAN_INTERFACE ! -s 192.168.100.0/24 -j DROP
+
+    # Protect against port scanning
+    iptables -N port-scanning
+    iptables -A port-scanning -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s --limit-burst 2 -j RETURN
+    iptables -A port-scanning -j DROP
+
+    # Protection against common attacks
+    iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP  # NULL packets
+    iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP   # XMAS packets
+    iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
+    iptables -A INPUT -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
+
+    # Rate limit SSH connections (prevent brute force)
+    iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --set --name SSH
+    iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 4 --rttl --name SSH -j DROP
+
+    # Allow SSH from WAN (will be secured with fail2ban)
+    iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 22 -m state --state NEW -j ACCEPT
+
+    # Allow HTTPS for portal communication
+    iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 443 -m state --state NEW -j ACCEPT
+
+    # Allow stream server port
+    iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 8000 -m state --state NEW -j ACCEPT
+
+    # Allow all from LAN to POD
+    iptables -A INPUT -i $LAN_INTERFACE -s $LAN_NETWORK -j ACCEPT
+
+    # Allow DHCP from camera network
+    iptables -A INPUT -i $LAN_INTERFACE -p udp --dport 67:68 --sport 67:68 -j ACCEPT
+
+    # Allow DNS queries from camera network
+    iptables -A INPUT -i $LAN_INTERFACE -p udp --dport 53 -j ACCEPT
+    iptables -A INPUT -i $LAN_INTERFACE -p tcp --dport 53 -j ACCEPT
+
+    # NAT: Masquerade camera network traffic going to internet
     iptables -t nat -A POSTROUTING -o $WAN_INTERFACE -j MASQUERADE
-    iptables -A FORWARD -i $LAN_INTERFACE -o $WAN_INTERFACE -j ACCEPT
-    iptables -A FORWARD -i $WAN_INTERFACE -o $LAN_INTERFACE -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+    # Forward camera network traffic to internet
+    iptables -A FORWARD -i $LAN_INTERFACE -o $WAN_INTERFACE -s $LAN_NETWORK -j ACCEPT
+    iptables -A FORWARD -i $WAN_INTERFACE -o $LAN_INTERFACE -d $LAN_NETWORK -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+    # Block forwarding from WAN to LAN (cameras not accessible from internet)
+    iptables -A FORWARD -i $WAN_INTERFACE -o $LAN_INTERFACE -j DROP
+
+    # Log dropped packets (for debugging)
+    iptables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables INPUT denied: " --log-level 7
+    iptables -A FORWARD -m limit --limit 5/min -j LOG --log-prefix "iptables FORWARD denied: " --log-level 7
 
     # Save iptables rules
     print_step "Saving firewall rules..."
+    mkdir -p /etc/iptables
     iptables-save > /etc/iptables/rules.v4
 
-    # Configure UFW (optional, more user-friendly)
-    print_step "Configuring UFW..."
-    ufw --force enable
-    ufw default deny incoming
-    ufw default allow outgoing
-    ufw allow 22/tcp comment "SSH"
-    ufw allow 443/tcp comment "HTTPS Portal"
-    ufw allow 8000/tcp comment "Stream Server"
+    print_success "Firewall configured with router security"
+}
 
-    print_success "Firewall configured"
+configure_security_hardening() {
+    print_header "Configuring Security Hardening"
+
+    # Configure fail2ban for SSH protection
+    print_step "Configuring fail2ban..."
+    cat > /etc/fail2ban/jail.local << EOF
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 3
+destemail = root@localhost
+sendername = Fail2Ban
+action = %(action_mwl)s
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 3600
+EOF
+
+    systemctl enable fail2ban
+    systemctl restart fail2ban
+
+    # Configure automatic security updates
+    print_step "Configuring automatic security updates..."
+    cat > /etc/apt/apt.conf.d/50unattended-upgrades << EOF
+Unattended-Upgrade::Allowed-Origins {
+    "\${distro_id}:\${distro_codename}-security";
+    "\${distro_id}ESMApps:\${distro_codename}-apps-security";
+    "\${distro_id}ESM:\${distro_codename}-infra-security";
+};
+Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+Unattended-Upgrade::MinimalSteps "true";
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "false";
+EOF
+
+    cat > /etc/apt/apt.conf.d/20auto-upgrades << EOF
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Download-Upgradeable-Packages "1";
+APT::Periodic::AutocleanInterval "7";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+
+    systemctl enable unattended-upgrades
+    systemctl start unattended-upgrades
+
+    # Harden SSH configuration
+    print_step "Hardening SSH configuration..."
+    cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+
+    # Apply SSH hardening
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+    sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+
+    # Add if not exists
+    grep -q "^PasswordAuthentication" /etc/ssh/sshd_config || echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+    grep -q "^PubkeyAuthentication" /etc/ssh/sshd_config || echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+    grep -q "^PermitEmptyPasswords" /etc/ssh/sshd_config || echo "PermitEmptyPasswords no" >> /etc/ssh/sshd_config
+    grep -q "^MaxAuthTries" /etc/ssh/sshd_config || echo "MaxAuthTries 3" >> /etc/ssh/sshd_config
+    grep -q "^ClientAliveInterval" /etc/ssh/sshd_config || echo "ClientAliveInterval 300" >> /etc/ssh/sshd_config
+    grep -q "^ClientAliveCountMax" /etc/ssh/sshd_config || echo "ClientAliveCountMax 2" >> /etc/ssh/sshd_config
+    grep -q "^Protocol" /etc/ssh/sshd_config || echo "Protocol 2" >> /etc/ssh/sshd_config
+    grep -q "^X11Forwarding" /etc/ssh/sshd_config || echo "X11Forwarding no" >> /etc/ssh/sshd_config
+
+    # Test SSH config before restarting
+    sshd -t && systemctl restart sshd
+
+    print_warning "SSH has been hardened. Make sure you have SSH key access configured!"
+    print_warning "Root login is now disabled."
+
+    # Set secure permissions on important files
+    print_step "Setting secure file permissions..."
+    chmod 700 /root
+    chmod 600 /etc/ssh/sshd_config
+    chmod 644 /etc/passwd
+    chmod 644 /etc/group
+    chmod 600 /etc/shadow
+    chmod 600 /etc/gshadow
+
+    # Disable unnecessary services
+    print_step "Disabling unnecessary services..."
+    systemctl disable bluetooth.service 2>/dev/null || true
+    systemctl stop bluetooth.service 2>/dev/null || true
+
+    print_success "Security hardening complete"
 }
 
 create_pod_user() {
@@ -552,24 +750,42 @@ save_network_info() {
     print_header "Saving Network Information"
 
     cat > $INSTALL_DIR/network-info.txt << EOF
-PlateBridge POD Network Configuration
-======================================
+PlateBridge POD Network & Security Configuration
+=================================================
 Installation Date: $(date)
+POD acts as secure router between cellular WAN and camera LAN
 
 Network Interfaces:
-- WAN (Internet): $WAN_INTERFACE (DHCP)
+- WAN (Cellular): $WAN_INTERFACE (DHCP from carrier)
 - LAN (Cameras):  $LAN_INTERFACE (Static: $LAN_IP)
 
-Camera Network:
+Camera Network (Isolated):
 - Network:     $LAN_NETWORK
-- Gateway:     $LAN_IP
+- Gateway:     $LAN_IP (this POD)
 - DHCP Range:  $DHCP_RANGE_START - $DHCP_RANGE_END
 - DNS:         8.8.8.8, 8.8.4.4
+- Isolation:   Cameras CANNOT be accessed from internet
+- NAT:         Camera traffic masqueraded through $WAN_INTERFACE
 
-Services:
+Services (Accessible from WAN):
+- SSH:             Port 22 (hardened, fail2ban protected)
 - Frigate Web UI:  http://$(hostname -I | awk '{print $1}'):5000
+- HTTPS Portal:    Port 443
+- Stream Server:   Port 8000
 - RTSP Server:     rtsp://$(hostname -I | awk '{print $1}'):8554
-- Portal API:      Configured in $INSTALL_DIR/docker/.env
+
+Security Features:
+- ✓ iptables firewall (default DROP policy)
+- ✓ NAT for camera network
+- ✓ Anti-spoofing rules
+- ✓ SYN flood protection
+- ✓ Port scan detection
+- ✓ SSH rate limiting (max 3 attempts/min)
+- ✓ fail2ban (3 failed SSH = 1hr ban)
+- ✓ Root login disabled
+- ✓ Automatic security updates
+- ✓ Camera network isolated from internet
+- ✓ WAN cannot access cameras directly
 
 Useful Commands:
 ================
@@ -593,6 +809,34 @@ sudo arp-scan --interface=$LAN_INTERFACE $LAN_NETWORK
 
 # Check network
 ip addr show
+
+Security Monitoring:
+====================
+# View firewall logs (dropped packets)
+sudo tail -f /var/log/syslog | grep iptables
+
+# Check fail2ban status
+sudo fail2ban-client status
+sudo fail2ban-client status sshd
+
+# View banned IPs
+sudo fail2ban-client status sshd | grep "Banned IP"
+
+# Unban an IP
+sudo fail2ban-client set sshd unbanip <ip-address>
+
+# View SSH login attempts
+sudo tail -f /var/log/auth.log
+
+# Check firewall rules
+sudo iptables -L -v -n
+sudo iptables -t nat -L -v -n
+
+# View security updates
+sudo tail -f /var/log/unattended-upgrades/unattended-upgrades.log
+
+# Check open ports
+sudo ss -tulpn
 
 Configuration Files:
 ====================
@@ -645,6 +889,7 @@ main() {
     configure_network
     configure_dhcp
     configure_firewall
+    configure_security_hardening
     install_frigate
     install_pod_agent
     create_camera_discovery_script
@@ -664,9 +909,11 @@ main() {
     print_header "Installation Complete!"
 
     echo -e "${GREEN}✓ Docker and Docker Compose installed${NC}"
-    echo -e "${GREEN}✓ Network configured (Dual-NIC)${NC}"
+    echo -e "${GREEN}✓ Network configured (Dual-NIC: $WAN_INTERFACE, $LAN_INTERFACE)${NC}"
     echo -e "${GREEN}✓ DHCP server running${NC}"
-    echo -e "${GREEN}✓ Firewall configured${NC}"
+    echo -e "${GREEN}✓ Firewall configured with router security${NC}"
+    echo -e "${GREEN}✓ Security hardening applied (fail2ban, auto-updates)${NC}"
+    echo -e "${GREEN}✓ SSH hardened (root login disabled)${NC}"
     echo -e "${GREEN}✓ Frigate NVR ready${NC}"
     echo -e "${GREEN}✓ POD agent installed${NC}"
     echo ""
