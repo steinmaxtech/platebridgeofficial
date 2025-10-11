@@ -761,16 +761,61 @@ configure_interactive() {
 
     echo "Let's configure your POD connection to the portal."
     echo ""
+    echo "NOTE: Get your Site ID from the portal's Properties page."
+    echo "      It will be displayed at the bottom of each property card."
+    echo ""
 
     read -p "Portal URL (e.g., https://platebridge.vercel.app): " PORTAL_URL
-    read -p "POD API Key: " POD_API_KEY
-    read -p "Site ID: " SITE_ID
+    read -p "Site ID (from Properties page): " SITE_ID
+
+    # Get POD hardware info for registration
+    SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || echo "POD-$(hostname)-$(date +%s)")
+    MAC=$(ip link show $LAN_INTERFACE | grep link/ether | awk '{print $2}')
+    MODEL=$(cat /sys/class/dmi/id/product_name 2>/dev/null || echo "PB-M1")
+
+    echo ""
+    print_step "Registering POD with portal..."
+    echo "  Serial: $SERIAL"
+    echo "  MAC: $MAC"
+    echo "  Model: $MODEL"
+    echo ""
+
+    # Register POD and get API key
+    REGISTER_RESPONSE=$(curl -s -X POST "$PORTAL_URL/api/pods/register" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"serial\": \"$SERIAL\",
+            \"mac\": \"$MAC\",
+            \"model\": \"$MODEL\",
+            \"version\": \"1.0.0\",
+            \"site_id\": \"$SITE_ID\"
+        }")
+
+    # Extract API key from response
+    POD_API_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+
+    if [ -z "$POD_API_KEY" ]; then
+        print_error "Failed to register POD with portal"
+        echo "Response: $REGISTER_RESPONSE"
+        echo ""
+        echo "Please check:"
+        echo "  1. Portal URL is correct"
+        echo "  2. Site ID is correct (copy from Properties page)"
+        echo "  3. Portal is accessible from this POD"
+        exit 1
+    fi
+
+    print_success "POD registered successfully!"
+    echo ""
+    echo "  API Key: ${POD_API_KEY:0:20}..."
+    echo ""
 
     # Create .env file
     cat > $INSTALL_DIR/docker/.env << EOF
 PORTAL_URL=$PORTAL_URL
 POD_API_KEY=$POD_API_KEY
 SITE_ID=$SITE_ID
+POD_SERIAL=$SERIAL
 FRIGATE_RTSP_PASSWORD=password
 EOF
 

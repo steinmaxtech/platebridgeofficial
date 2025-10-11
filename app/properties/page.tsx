@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
-import { Plus, Pencil, Building2, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Building2, Trash2, Copy, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -45,6 +45,7 @@ export default function SitesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     community_id: '',
     name: '',
@@ -209,6 +210,13 @@ export default function SitesPage() {
     fetchSites();
   };
 
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   if (loading || !user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E293B]">
@@ -363,15 +371,35 @@ export default function SitesPage() {
                   {community && (
                     <p className="text-sm text-muted-foreground mb-2">{community.name}</p>
                   )}
-                  <p className="text-xs text-muted-foreground mb-2">Site ID: {site.site_id}</p>
                   {site.camera_ids.length > 0 && (
                     <p className="text-xs text-muted-foreground mb-2">
                       Cameras: {site.camera_ids.join(', ')}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mb-4">
                     Added {new Date(site.created_at).toLocaleDateString()}
                   </p>
+
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Site ID (for POD setup)</p>
+                        <p className="text-sm font-mono text-blue-700 dark:text-blue-400 truncate">{site.id}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(site.id, site.id)}
+                        className="ml-2 shrink-0"
+                      >
+                        {copiedId === site.id ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-blue-600" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </Card>
               );
             })
