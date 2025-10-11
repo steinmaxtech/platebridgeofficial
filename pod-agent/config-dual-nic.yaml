@@ -1,5 +1,6 @@
 # PlateBridge Pod Configuration - Dual NIC Setup
 # Copy this to /opt/platebridge/config.yaml
+# Agent location: /homes/jstein/platebridgeofficial/pod-agent/complete_pod_agent.py
 #
 # Network Setup:
 #   WAN (enp3s0): Internet connection

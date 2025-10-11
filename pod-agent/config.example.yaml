@@ -1,5 +1,6 @@
 # PlateBridge Pod Configuration
 # Copy this file to config.yaml and fill in your values
+# Agent location: /homes/jstein/platebridgeofficial/pod-agent/complete_pod_agent.py
 
 # Portal connection
 portal_url: "https://your-portal.vercel.app"
