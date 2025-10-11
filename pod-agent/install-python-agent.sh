@@ -44,23 +44,28 @@ print_step "Setting up directories..."
 mkdir -p $INSTALL_DIR/{config,logs,recordings}
 mkdir -p /tmp/hls_output
 
-print_step "Installing Python dependencies..."
+print_step "Installing system dependencies..."
 apt-get update -qq
-apt-get install -y python3 python3-pip python3-venv ffmpeg
+apt-get install -y python3 python3-pip python3-venv ffmpeg curl git
+
+print_step "Detecting script location..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 print_step "Creating virtual environment..."
 cd $INSTALL_DIR
 python3 -m venv venv
 
-print_step "Installing requirements..."
+print_step "Installing Python requirements..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r /path/to/requirements.txt
+pip install pyyaml requests paho-mqtt flask
 deactivate
 
 print_step "Copying agent files..."
-cp /path/to/complete_pod_agent.py $INSTALL_DIR/agent.py
-cp /path/to/config.example.yaml $INSTALL_DIR/config.yaml
+cp "$SCRIPT_DIR/complete_pod_agent.py" $INSTALL_DIR/agent.py
+cp "$SCRIPT_DIR/config.example.yaml" $INSTALL_DIR/config.yaml
+
+print_success "Agent files installed"
 
 print_step "Configuring portal connection..."
 read -p "Portal URL: " PORTAL_URL
