@@ -31,6 +31,17 @@ check_pip() {
     fi
 }
 
+check_venv() {
+    if python3 -m venv --help &> /dev/null; then
+        echo "✓ python3-venv found"
+    else
+        echo "✗ python3-venv is not installed"
+        echo "Installing python3-venv..."
+        sudo apt-get update
+        sudo apt-get install -y python3-venv
+    fi
+}
+
 install_agent() {
     echo ""
     echo "Installing PlateBridge Agent to $INSTALL_DIR..."
@@ -44,8 +55,17 @@ install_agent() {
     chmod +x "$INSTALL_DIR/agent.py"
 
     cd "$INSTALL_DIR"
+
+    echo "Creating Python virtual environment..."
+    python3 -m venv venv
+
     echo "Installing Python dependencies..."
-    sudo PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install -r requirements.txt
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    deactivate
+
+    echo "✓ Virtual environment created at $INSTALL_DIR/venv"
 
 
 
@@ -382,7 +402,8 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$PYTHON_CMD $INSTALL_DIR/agent.py $INSTALL_DIR/config.yaml
+Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/agent.py $INSTALL_DIR/config.yaml
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -416,13 +437,16 @@ test_agent() {
         echo "Starting agent in test mode (Ctrl+C to stop)..."
         echo ""
         cd "$INSTALL_DIR"
-        $PYTHON_CMD agent.py config.yaml
+        source venv/bin/activate
+        python agent.py config.yaml
+        deactivate
     fi
 }
 
 main() {
     check_python
     check_pip
+    check_venv
     install_agent
     configure_agent
     create_systemd_service
