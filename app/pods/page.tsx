@@ -75,14 +75,71 @@ export default function PodsPage() {
   const loadPods = async (silent = false) => {
     try {
       if (!silent) setLoadingPods(true);
-      const response = await fetch('/api/pods');
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch pods');
+      // Import supabase client
+      const { supabase } = await import('@/lib/supabase');
+
+      // Get user's communities through memberships
+      const { data: memberships } = await supabase
+        .from('memberships')
+        .select('company_id')
+        .eq('user_id', user!.id);
+
+      if (!memberships || memberships.length === 0) {
+        setPods([]);
+        setLastUpdate(new Date());
+        return;
       }
 
-      const data = await response.json();
-      setPods(data.pods || []);
+      const companyIds = memberships.map(m => m.company_id);
+
+      // Get all pods for user's communities
+      const { data: pods, error: podsError } = await supabase
+        .from('pods')
+        .select(`
+          *,
+          site:sites(
+            id,
+            name,
+            community:communities(
+              id,
+              name,
+              company_id
+            )
+          ),
+          cameras(
+            id,
+            name,
+            status
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (podsError) {
+        throw podsError;
+      }
+
+      // Filter pods by company_id and enrich data
+      const filteredPods = (pods || []).filter(pod =>
+        pod.site?.community?.company_id && companyIds.includes(pod.site.community.company_id)
+      );
+
+      const enrichedPods = filteredPods.map(pod => {
+        const lastSeen = pod.last_heartbeat ? new Date(pod.last_heartbeat) : null;
+        const now = new Date();
+        const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 5 * 60 * 1000;
+
+        return {
+          ...pod,
+          isOnline,
+          lastSeenMinutes: lastSeen ? Math.floor((now.getTime() - lastSeen.getTime()) / 60000) : null,
+          cameraCount: pod.cameras?.length || 0,
+          communityName: pod.site?.community?.name || 'Unknown',
+          siteName: pod.site?.name || 'Unknown',
+        };
+      });
+
+      setPods(enrichedPods);
       setLastUpdate(new Date());
     } catch (error) {
       console.error('Error loading pods:', error);

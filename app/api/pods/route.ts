@@ -3,31 +3,32 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized - No auth header' }, { status: 401 });
-    }
-
-    const authToken = authHeader.replace('Bearer ', '');
-
+    // Create Supabase client with anon key (will use RLS)
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${authToken}`
-          }
-        }
-      }
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
+    // Extract auth token from cookie
+    const authCookie = request.cookies.get('sb-access-token')?.value ||
+                      request.cookies.get('supabase-auth-token')?.value;
+
+    if (!authCookie) {
+      // Try all possible cookie names
+      const allCookies = request.cookies.getAll();
+      const authCookieAlt = allCookies.find(c => c.name.includes('auth-token'));
+      if (!authCookieAlt) {
+        return NextResponse.json({ error: 'No auth cookie found' }, { status: 401 });
+      }
+    }
+
+    // Set auth header if we have a token
+    const authHeader = request.headers.get('cookie');
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - invalid session' },
         { status: 401 }
       );
     }
