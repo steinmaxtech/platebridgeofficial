@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
-import { Plus, Pencil, Building2, Trash2, Copy, Check } from 'lucide-react';
+import { Plus, Pencil, Building2, Trash2, Copy, Check, Key, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
@@ -46,6 +46,10 @@ export default function SitesPage() {
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [selectedSiteForToken, setSelectedSiteForToken] = useState<Site | null>(null);
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
   const [formData, setFormData] = useState({
     community_id: '',
     name: '',
@@ -217,6 +221,40 @@ export default function SitesPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const generateRegistrationToken = async (site: Site) => {
+    setSelectedSiteForToken(site);
+    setGeneratedToken(null);
+    setTokenDialogOpen(true);
+    setGeneratingToken(true);
+
+    try {
+      const response = await fetch('/api/pods/registration-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          site_id: site.id,
+          expires_in_hours: 24,
+          max_uses: 1,
+          notes: `Token for ${site.name}`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate token');
+      }
+
+      const data = await response.json();
+      setGeneratedToken(data.token.token);
+      toast.success('Registration token generated!');
+    } catch (error) {
+      console.error('Error generating token:', error);
+      toast.error('Failed to generate token');
+      setTokenDialogOpen(false);
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
   if (loading || !user || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E293B]">
@@ -383,7 +421,7 @@ export default function SitesPage() {
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Site ID (for POD setup)</p>
+                        <p className="text-xs font-medium text-blue-900 dark:text-blue-300 mb-1">Site ID</p>
                         <p className="text-sm font-mono text-blue-700 dark:text-blue-400 truncate">{site.id}</p>
                       </div>
                       <Button
@@ -399,6 +437,14 @@ export default function SitesPage() {
                         )}
                       </Button>
                     </div>
+                    <Button
+                      onClick={() => generateRegistrationToken(site)}
+                      className="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                      size="sm"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Generate POD Registration Token
+                    </Button>
                   </div>
                 </Card>
               );
@@ -442,6 +488,89 @@ export default function SitesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>POD Registration Token</DialogTitle>
+            </DialogHeader>
+            {generatingToken ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+                <span className="ml-3">Generating token...</span>
+              </div>
+            ) : generatedToken ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Key className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-green-900 dark:text-green-100 mb-1">
+                        Registration Token Generated
+                      </h4>
+                      <p className="text-sm text-green-700 dark:text-green-300">
+                        Use this token during POD installation. It expires in 24 hours and can be used once.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Token (copy this)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={generatedToken}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      onClick={() => copyToClipboard(generatedToken, 'token')}
+                      variant="outline"
+                    >
+                      {copiedId === 'token' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 space-y-2">
+                  <h4 className="font-semibold text-sm">Installation Instructions:</h4>
+                  <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
+                    <li>SSH into your POD device</li>
+                    <li>Run: <code className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded">sudo ./install-complete.sh</code></li>
+                    <li>Enter portal URL when prompted</li>
+                    <li>Paste this registration token when prompted</li>
+                    <li>POD will automatically register and receive API key</li>
+                  </ol>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setTokenDialogOpen(false)}
+                    className="flex-1"
+                    variant="outline"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedSiteForToken) {
+                        generateRegistrationToken(selectedSiteForToken);
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Generate New Token
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

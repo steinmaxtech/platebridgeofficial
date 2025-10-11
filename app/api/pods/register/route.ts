@@ -5,7 +5,7 @@ import crypto from 'crypto';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { serial, mac, model, version, community_id, site_id } = body;
+    const { serial, mac, model, version, registration_token } = body;
 
     if (!serial || !mac) {
       return NextResponse.json(
@@ -14,35 +14,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!community_id && !site_id) {
+    if (!registration_token) {
       return NextResponse.json(
-        { error: 'Either community_id or site_id is required' },
+        { error: 'Registration token is required. Get one from the portal Properties page.' },
         { status: 400 }
       );
     }
 
     const supabase = supabaseServer;
 
-    // If site_id provided, get community_id
-    let resolvedCommunityId = community_id;
-    if (site_id && !community_id) {
-      const { data: site } = await supabase
-        .from('sites')
-        .select('community_id')
-        .eq('id', site_id)
-        .single();
+    const { data: tokenData, error: tokenError } = await supabase
+      .from('pod_registration_tokens')
+      .select('id, site_id, expires_at, used_at, use_count, max_uses')
+      .eq('token', registration_token)
+      .maybeSingle();
 
-      if (site) {
-        resolvedCommunityId = site.community_id;
-      }
-    }
-
-    if (!resolvedCommunityId) {
+    if (tokenError || !tokenData) {
       return NextResponse.json(
-        { error: 'Could not determine community' },
-        { status: 400 }
+        { error: 'Invalid registration token' },
+        { status: 401 }
       );
     }
+
+    if (tokenData.used_at && tokenData.use_count >= tokenData.max_uses) {
+      return NextResponse.json(
+        { error: 'Registration token has already been used' },
+        { status: 401 }
+      );
+    }
+
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: 'Registration token has expired' },
+        { status: 401 }
+      );
+    }
+
+    const site_id = tokenData.site_id;
 
     // Check if POD already exists
     const { data: existingPod } = await supabase
@@ -109,24 +117,17 @@ export async function POST(request: NextRequest) {
 
     podId = newPod.id;
 
-    // Get current user (if authenticated via portal)
-    const { data: { user } } = await supabase.auth.getUser();
-    const createdBy = user?.id;
+    await supabase
+      .from('pod_registration_tokens')
+      .update({
+        used_at: new Date().toISOString(),
+        used_by_serial: serial,
+        used_by_mac: mac,
+        pod_id: podId,
+        use_count: (tokenData.use_count || 0) + 1,
+      })
+      .eq('id', tokenData.id);
 
-    // Create API key record
-    if (createdBy) {
-      await supabase
-        .from('pod_api_keys')
-        .insert({
-          name: `${serial} Registration Key`,
-          community_id: resolvedCommunityId,
-          pod_id: serial,
-          key_hash: keyHash,
-          created_by: createdBy,
-        });
-    }
-
-    // Return registration response
     return NextResponse.json({
       pod_id: podId,
       api_key: apiKey,

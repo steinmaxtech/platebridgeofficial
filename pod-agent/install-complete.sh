@@ -761,12 +761,13 @@ configure_interactive() {
 
     echo "Let's configure your POD connection to the portal."
     echo ""
-    echo "NOTE: Get your Site ID from the portal's Properties page."
-    echo "      It will be displayed at the bottom of each property card."
+    echo "STEP 1: Go to the portal's Properties page"
+    echo "STEP 2: Click 'Generate POD Registration Token' on your site"
+    echo "STEP 3: Copy the generated token"
     echo ""
 
     read -p "Portal URL (e.g., https://platebridge.vercel.app): " PORTAL_URL
-    read -p "Site ID (from Properties page): " SITE_ID
+    read -p "Registration Token (from portal): " REG_TOKEN
 
     # Get POD hardware info for registration
     SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || echo "POD-$(hostname)-$(date +%s)")
@@ -788,25 +789,30 @@ configure_interactive() {
             \"mac\": \"$MAC\",
             \"model\": \"$MODEL\",
             \"version\": \"1.0.0\",
-            \"site_id\": \"$SITE_ID\"
+            \"registration_token\": \"$REG_TOKEN\"
         }")
 
-    # Extract API key from response
+    # Extract API key and POD ID from response
     POD_API_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
+    POD_ID=$(echo "$REGISTER_RESPONSE" | grep -o '"pod_id":"[^"]*"' | cut -d'"' -f4)
 
     if [ -z "$POD_API_KEY" ]; then
         print_error "Failed to register POD with portal"
         echo "Response: $REGISTER_RESPONSE"
         echo ""
-        echo "Please check:"
-        echo "  1. Portal URL is correct"
-        echo "  2. Site ID is correct (copy from Properties page)"
-        echo "  3. Portal is accessible from this POD"
+        echo "Common issues:"
+        echo "  1. Token expired (tokens valid for 24 hours)"
+        echo "  2. Token already used"
+        echo "  3. Portal URL is incorrect"
+        echo "  4. Network connectivity issue"
+        echo ""
+        echo "Generate a new token from the portal and try again."
         exit 1
     fi
 
     print_success "POD registered successfully!"
     echo ""
+    echo "  POD ID: $POD_ID"
     echo "  API Key: ${POD_API_KEY:0:20}..."
     echo ""
 
@@ -814,7 +820,7 @@ configure_interactive() {
     cat > $INSTALL_DIR/docker/.env << EOF
 PORTAL_URL=$PORTAL_URL
 POD_API_KEY=$POD_API_KEY
-SITE_ID=$SITE_ID
+POD_ID=$POD_ID
 POD_SERIAL=$SERIAL
 FRIGATE_RTSP_PASSWORD=password
 EOF
