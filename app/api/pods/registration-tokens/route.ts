@@ -4,11 +4,18 @@ import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = supabaseServer;
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized - No auth header' }, { status: 401 });
+    }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = supabaseServer;
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -50,11 +57,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = supabaseServer;
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized - No auth header' }, { status: 401 });
+    }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authToken = authHeader.replace('Bearer ', '');
+    const supabase = supabaseServer;
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authToken);
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -83,7 +97,11 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating token:', error);
-      return NextResponse.json({ error: 'Failed to create token' }, { status: 500 });
+      return NextResponse.json({
+        error: 'Failed to create token',
+        details: error.message,
+        code: error.code
+      }, { status: 500 });
     }
 
     return NextResponse.json({ token: newToken });
@@ -95,11 +113,18 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = supabaseServer;
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Unauthorized - No auth header' }, { status: 401 });
+    }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = supabaseServer;
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized - Invalid token' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);

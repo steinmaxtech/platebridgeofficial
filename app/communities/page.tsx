@@ -228,9 +228,17 @@ export default function CommunitiesPage() {
     setGeneratingToken(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+
       const response = await fetch('/api/pods/registration-tokens', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           community_id: community.id,
           expires_in_hours: 24,
@@ -240,7 +248,8 @@ export default function CommunitiesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate token');
+        const errorData = await response.json();
+        throw new Error(errorData.details || errorData.error || 'Failed to generate token');
       }
 
       const data = await response.json();
@@ -248,7 +257,7 @@ export default function CommunitiesPage() {
       toast.success('Registration token generated!');
     } catch (error) {
       console.error('Error generating token:', error);
-      toast.error('Failed to generate token');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate token');
       setTokenDialogOpen(false);
     } finally {
       setGeneratingToken(false);
