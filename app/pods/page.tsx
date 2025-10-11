@@ -46,6 +46,8 @@ export default function PodsPage() {
   const [pods, setPods] = useState<Pod[]>([]);
   const [loadingPods, setLoadingPods] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -59,9 +61,20 @@ export default function PodsPage() {
     }
   }, [user]);
 
-  const loadPods = async () => {
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!autoRefresh || !user) return;
+
+    const interval = setInterval(() => {
+      loadPods();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, user]);
+
+  const loadPods = async (silent = false) => {
     try {
-      setLoadingPods(true);
+      if (!silent) setLoadingPods(true);
       const response = await fetch('/api/pods');
 
       if (!response.ok) {
@@ -70,11 +83,12 @@ export default function PodsPage() {
 
       const data = await response.json();
       setPods(data.pods || []);
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Error loading pods:', error);
-      toast.error('Failed to load PODs');
+      if (!silent) toast.error('Failed to load PODs');
     } finally {
-      setLoadingPods(false);
+      if (!silent) setLoadingPods(false);
     }
   };
 
@@ -83,6 +97,11 @@ export default function PodsPage() {
     await loadPods();
     setRefreshing(false);
     toast.success('PODs refreshed');
+  };
+
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
+    toast.success(autoRefresh ? 'Auto-refresh disabled' : 'Auto-refresh enabled');
   };
 
   const handleViewPod = (podId: string) => {
@@ -123,9 +142,24 @@ export default function PodsPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">POD Management</h1>
-            <p className="text-muted-foreground">Monitor and manage your edge devices</p>
+            <p className="text-muted-foreground">
+              Monitor and manage your edge devices
+              {lastUpdate && (
+                <span className="ml-2 text-xs">
+                  • Last updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant={autoRefresh ? "default" : "outline"}
+              onClick={toggleAutoRefresh}
+              size="sm"
+            >
+              <Activity className={`mr-2 h-4 w-4 ${autoRefresh ? 'animate-pulse' : ''}`} />
+              Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
+            </Button>
             <Button
               variant="outline"
               onClick={handleRefresh}

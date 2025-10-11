@@ -51,6 +51,8 @@ export default function PodDetailPage() {
   const [commands, setCommands] = useState<Command[]>([]);
   const [loadingPod, setLoadingPod] = useState(true);
   const [sendingCommand, setSendingCommand] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -64,9 +66,20 @@ export default function PodDetailPage() {
     }
   }, [user, podId]);
 
-  const loadPodDetails = async () => {
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    if (!autoRefresh || !user || !podId) return;
+
+    const interval = setInterval(() => {
+      loadPodDetails(true); // Silent refresh
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, user, podId]);
+
+  const loadPodDetails = async (silent = false) => {
     try {
-      setLoadingPod(true);
+      if (!silent) setLoadingPod(true);
       const response = await fetch(`/api/pods/${podId}`);
 
       if (!response.ok) {
@@ -78,11 +91,12 @@ export default function PodDetailPage() {
       setStats(data.stats);
       setDetections(data.detections);
       setCommands(data.commands);
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Error loading POD:', error);
-      toast.error('Failed to load POD details');
+      if (!silent) toast.error('Failed to load POD details');
     } finally {
-      setLoadingPod(false);
+      if (!silent) setLoadingPod(false);
     }
   };
 
@@ -172,7 +186,18 @@ export default function PodDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={loadPodDetails}>
+            <Button
+              variant={autoRefresh ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setAutoRefresh(!autoRefresh);
+                toast.success(autoRefresh ? 'Auto-refresh disabled' : 'Auto-refresh enabled');
+              }}
+            >
+              <Activity className={`mr-2 h-4 w-4 ${autoRefresh ? 'animate-pulse' : ''}`} />
+              Live {autoRefresh ? 'ON' : 'OFF'}
+            </Button>
+            <Button variant="outline" onClick={() => loadPodDetails()}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
@@ -296,49 +321,110 @@ export default function PodDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Remote control commands for this POD</CardDescription>
+            <CardTitle className="flex items-center justify-between">
+              <span>Quick Actions</span>
+              {lastUpdate && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Remote control commands for this POD
+              {!isOnline && (
+                <span className="block mt-1 text-yellow-600">
+                  ⚠️ POD is offline - commands will execute when it comes back online
+                </span>
+              )}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2 md:grid-cols-3">
-              <Button
-                variant="outline"
-                onClick={() => sendCommand('restart')}
-                disabled={sendingCommand}
-              >
-                <RotateCw className="mr-2 h-4 w-4" />
-                Restart Services
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => sendCommand('reboot')}
-                disabled={sendingCommand}
-              >
-                <Power className="mr-2 h-4 w-4" />
-                Reboot Device
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => sendCommand('refresh_config')}
-                disabled={sendingCommand}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Refresh Config
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => downloadConfig('compose')}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Compose
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => downloadConfig('env')}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download .env
-              </Button>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Service Management</h4>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => sendCommand('restart')}
+                    disabled={sendingCommand}
+                    className="justify-start"
+                  >
+                    <RotateCw className="mr-2 h-4 w-4" />
+                    Restart Services
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => sendCommand('refresh_config')}
+                    disabled={sendingCommand}
+                    className="justify-start"
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Refresh Config
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => sendCommand('update')}
+                    disabled={sendingCommand}
+                    className="justify-start"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Update Software
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2">System Control</h4>
+                <div className="grid gap-2 md:grid-cols-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => sendCommand('reboot')}
+                    disabled={sendingCommand}
+                    className="justify-start"
+                  >
+                    <Power className="mr-2 h-4 w-4" />
+                    Reboot Device
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => sendCommand('clear_cache')}
+                    disabled={sendingCommand}
+                    className="justify-start"
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Clear Cache
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => sendCommand('test_camera')}
+                    disabled={sendingCommand}
+                    className="justify-start"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Test Cameras
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Configuration Files</h4>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadConfig('compose')}
+                    className="justify-start"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download docker-compose.yml
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadConfig('env')}
+                    className="justify-start"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download .env file
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
