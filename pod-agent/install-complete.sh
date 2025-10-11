@@ -649,6 +649,7 @@ pyyaml>=6.0
 requests>=2.31.0
 paho-mqtt>=1.6.1
 flask>=2.3.0
+psutil>=5.9.0
 EOF
 
     print_step "Creating Frigate docker-compose.yml..."

@@ -20,6 +20,7 @@ import requests
 import paho.mqtt.client as mqtt
 from flask import Flask, Response, request, jsonify, send_file
 import hashlib
+import psutil
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,6 +49,64 @@ class CompletePodAgent:
         os.makedirs(self.config.get('recordings_dir', '/tmp/recordings'), exist_ok=True)
 
         self.load_whitelist_cache()
+
+    def get_system_stats(self) -> Dict[str, Any]:
+        """Collect CPU, memory, disk, and temperature information"""
+        try:
+            stats = {
+                'cpu_usage': psutil.cpu_percent(interval=1),
+                'memory_usage': psutil.virtual_memory().percent,
+                'disk_usage': psutil.disk_usage('/').percent,
+                'temperature': None
+            }
+
+            # Try to get temperature from sensors
+            try:
+                if hasattr(psutil, 'sensors_temperatures'):
+                    temps = psutil.sensors_temperatures()
+                    if temps:
+                        # Try common sensor names
+                        for sensor_name in ['coretemp', 'cpu_thermal', 'k10temp']:
+                            if sensor_name in temps:
+                                sensor_temps = temps[sensor_name]
+                                if sensor_temps:
+                                    stats['temperature'] = sensor_temps[0].current
+                                    break
+
+                        # If no common sensor found, use first available
+                        if stats['temperature'] is None:
+                            first_sensor = next(iter(temps.values()), None)
+                            if first_sensor:
+                                stats['temperature'] = first_sensor[0].current
+            except Exception as e:
+                logger.debug(f"Could not read temperature: {e}")
+
+            # Fallback: try reading from thermal zone files
+            if stats['temperature'] is None:
+                try:
+                    thermal_paths = [
+                        '/sys/class/thermal/thermal_zone0/temp',
+                        '/sys/class/thermal/thermal_zone1/temp'
+                    ]
+                    for path in thermal_paths:
+                        if os.path.exists(path):
+                            with open(path, 'r') as f:
+                                temp = int(f.read().strip())
+                                # Convert from millidegrees to degrees
+                                stats['temperature'] = temp / 1000.0
+                                break
+                except Exception as e:
+                    logger.debug(f"Could not read thermal zone: {e}")
+
+            return stats
+        except Exception as e:
+            logger.error(f"Error getting system stats: {e}")
+            return {
+                'cpu_usage': None,
+                'memory_usage': None,
+                'disk_usage': None,
+                'temperature': None
+            }
 
     def load_config(self) -> Dict[str, Any]:
         try:
@@ -355,12 +414,19 @@ class CompletePodAgent:
                     'position': self.config.get('camera_position', 'main entrance')
                 })
 
+            # Get system stats
+            sys_stats = self.get_system_stats()
+
             payload = {
                 'pod_id': self.config['pod_id'],
                 'ip_address': public_ip,
                 'firmware_version': '1.0.0',
                 'status': 'online',
-                'cameras': cameras
+                'cameras': cameras,
+                'cpu_usage': sys_stats['cpu_usage'],
+                'memory_usage': sys_stats['memory_usage'],
+                'disk_usage': sys_stats['disk_usage'],
+                'temperature': sys_stats['temperature']
             }
 
             response = requests.post(url, headers=headers, json=payload, timeout=5)

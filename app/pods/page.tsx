@@ -179,6 +179,12 @@ export default function PodsPage() {
     try {
       const { supabase } = await import('@/lib/supabase');
 
+      // Find the token used to register this pod
+      const { data: tokens } = await supabase
+        .from('pod_registration_tokens')
+        .select('id')
+        .eq('pod_id', deletingPod);
+
       // Delete the pod
       const { error } = await supabase
         .from('pods')
@@ -187,7 +193,18 @@ export default function PodsPage() {
 
       if (error) throw error;
 
-      toast.success('POD deleted successfully');
+      // Revoke the associated token(s) if any
+      if (tokens && tokens.length > 0) {
+        await supabase
+          .from('pod_registration_tokens')
+          .delete()
+          .eq('pod_id', deletingPod);
+
+        toast.success(`POD and ${tokens.length} associated token(s) deleted`);
+      } else {
+        toast.success('POD deleted successfully');
+      }
+
       setShowDeleteDialog(false);
       setDeletingPod(null);
 
@@ -456,7 +473,7 @@ export default function PodsPage() {
             <AlertDialogTitle>Delete POD</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this POD? This action cannot be undone.
-              All associated cameras and recordings will also be removed.
+              All associated cameras, recordings, and registration tokens will be removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

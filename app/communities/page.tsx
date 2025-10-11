@@ -464,14 +464,28 @@ export default function CommunitiesPage() {
                 </div>
 
                 {canManage && (
-                  <Button
-                    onClick={(e) => generateRegistrationToken(community, e)}
-                    className="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white mt-4"
-                    size="sm"
-                  >
-                    <Key className="w-4 h-4 mr-2" />
-                    Generate POD Token
-                  </Button>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/communities/${community.id}/tokens`);
+                      }}
+                      className="flex-1 rounded-lg"
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Key className="w-4 h-4 mr-2" />
+                      Manage Tokens
+                    </Button>
+                    <Button
+                      onClick={(e) => generateRegistrationToken(community, e)}
+                      className="flex-1 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                      size="sm"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Quick Token
+                    </Button>
+                  </div>
                 )}
               </Card>
             ))}
