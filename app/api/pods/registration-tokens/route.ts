@@ -192,11 +192,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id required' }, { status: 400 });
     }
 
+    // Allow deleting tokens that haven't been fully used
     const { error } = await supabase
       .from('pod_registration_tokens')
       .delete()
-      .eq('id', tokenId)
-      .is('used_at', null);
+      .eq('id', tokenId);
 
     if (error) {
       console.error('Error deleting token:', error);

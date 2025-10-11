@@ -39,9 +39,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (tokenData.used_at && tokenData.use_count >= tokenData.max_uses) {
+    // Check if token has reached max uses
+    if (tokenData.use_count >= tokenData.max_uses) {
       return NextResponse.json(
-        { error: 'Registration token has already been used' },
+        { error: 'Registration token has reached maximum uses' },
         { status: 401 }
       );
     }
@@ -129,15 +130,24 @@ export async function POST(request: NextRequest) {
 
     podId = newPod.id;
 
+    // Update token usage
+    const updateData: any = {
+      use_count: (tokenData.use_count || 0) + 1,
+    };
+
+    // Set used_at on first use
+    if (!tokenData.used_at) {
+      updateData.used_at = new Date().toISOString();
+      updateData.used_by_serial = serial;
+      updateData.used_by_mac = mac;
+    }
+
+    // Always track the latest pod_id
+    updateData.pod_id = podId;
+
     await supabase
       .from('pod_registration_tokens')
-      .update({
-        used_at: new Date().toISOString(),
-        used_by_serial: serial,
-        used_by_mac: mac,
-        pod_id: podId,
-        use_count: (tokenData.use_count || 0) + 1,
-      })
+      .update(updateData)
       .eq('id', tokenData.id);
 
     return NextResponse.json({
