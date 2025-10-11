@@ -223,6 +223,9 @@ configure_dhcp() {
     systemctl disable systemd-resolved
     systemctl stop systemd-resolved
 
+    # Remove immutable flag if set (from previous install)
+    chattr -i /etc/resolv.conf 2>/dev/null || true
+
     # Remove symlink to systemd-resolved
     if [ -L /etc/resolv.conf ]; then
         rm /etc/resolv.conf
