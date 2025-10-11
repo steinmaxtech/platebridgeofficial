@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Server, Activity, Clock, AlertCircle, RefreshCw, Eye, Cpu, HardDrive, Thermometer } from 'lucide-react';
+import { Server, Activity, Clock, AlertCircle, RefreshCw, Eye, Cpu, HardDrive, Thermometer, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Pod {
@@ -48,6 +49,8 @@ export default function PodsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [deletingPod, setDeletingPod] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -163,6 +166,37 @@ export default function PodsPage() {
 
   const handleViewPod = (podId: string) => {
     router.push(`/pods/${podId}`);
+  };
+
+  const handleDeletePod = (podId: string) => {
+    setDeletingPod(podId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeletePod = async () => {
+    if (!deletingPod) return;
+
+    try {
+      const { supabase } = await import('@/lib/supabase');
+
+      // Delete the pod
+      const { error } = await supabase
+        .from('pods')
+        .delete()
+        .eq('id', deletingPod);
+
+      if (error) throw error;
+
+      toast.success('POD deleted successfully');
+      setShowDeleteDialog(false);
+      setDeletingPod(null);
+
+      // Reload pods
+      await loadPods();
+    } catch (error) {
+      console.error('Error deleting pod:', error);
+      toast.error('Failed to delete POD');
+    }
   };
 
   const getStatusColor = (status: string, isOnline: boolean) => {
@@ -388,13 +422,23 @@ export default function PodsPage() {
                           <Badge variant="secondary">{pod.software_version}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewPod(pod.id)}
-                          >
-                            View Details
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewPod(pod.id)}
+                            >
+                              View Details
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletePod(pod.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -405,6 +449,29 @@ export default function PodsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete POD</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this POD? This action cannot be undone.
+              All associated cameras and recordings will also be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingPod(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeletePod}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete POD
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
