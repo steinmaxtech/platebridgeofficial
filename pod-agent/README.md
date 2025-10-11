@@ -1,89 +1,569 @@
-# PlateBridge Pod Agent
+# 🚀 PlateBridge POD Agent - Installation Scripts
 
-Connect your Frigate license plate detection system to the PlateBridge cloud portal.
+## 📋 Available Installation Scripts
 
-## Quick Start
+### **🎯 install-complete.sh** - Complete Production Setup ⭐ RECOMMENDED
 
+**What it installs:**
+- ✅ Docker & Docker Compose
+- ✅ Dual-NIC network configuration (WAN + LAN)
+- ✅ DHCP server for cameras (dnsmasq)
+- ✅ Firewall & NAT (iptables, UFW)
+- ✅ Frigate NVR
+- ✅ PlateBridge POD agent (Python with venv)
+- ✅ Camera discovery tools
+- ✅ Systemd auto-start services
+- ✅ All directories and configurations
+
+**Use when:**
+- 🎯 Setting up a new production POD from scratch
+- 🎯 You want everything configured automatically
+- 🎯 Using dual-NIC setup with dedicated camera network
+
+**Usage:**
 ```bash
-# 1. Copy this folder to your pod device
-scp -r pod-agent/ pi@your-pod-ip:~/
+cd platebridge/pod-agent
+sudo ./install-complete.sh
+```
 
-# 2. SSH into your pod
-ssh pi@your-pod-ip
+**Time:** 15-20 minutes
+**Requires:** Ubuntu 24.04, sudo access
 
-# 3. Run setup
-cd ~/pod-agent
-chmod +x setup.sh
+---
+
+### **🛠️ setup.sh** - Python Agent Only
+
+**What it installs:**
+- ✅ Python agent only
+- ✅ Python virtual environment (venv)
+- ✅ Python dependencies (no system conflicts!)
+- ✅ Interactive configuration wizard
+- ✅ Systemd service for agent
+
+**Does NOT install:**
+- ❌ Docker
+- ❌ Frigate
+- ❌ Network configuration
+- ❌ DHCP server
+
+**Use when:**
+- 🎯 Docker already installed
+- 🎯 Network already configured
+- 🎯 Only need the Python agent
+- 🎯 Development/testing environment
+
+**Usage:**
+```bash
+cd platebridge/pod-agent
+./setup.sh
+```
+
+**Time:** 5 minutes
+**Requires:** Python 3.7+
+
+---
+
+### **🌐 network-config.sh** - Network Setup Only
+
+**What it configures:**
+- ✅ Dual-NIC setup (eth0 WAN, eth1 LAN)
+- ✅ Static IP for camera network (192.168.100.1)
+- ✅ DHCP server (dnsmasq)
+- ✅ NAT/IP forwarding (iptables)
+- ✅ Firewall rules
+
+**Does NOT install:**
+- ❌ Docker
+- ❌ Frigate
+- ❌ Python agent
+
+**Use when:**
+- 🎯 Need to configure network separately
+- 🎯 Reconfiguring existing network
+- 🎯 Manual step-by-step installation
+
+**Usage:**
+```bash
+cd platebridge/pod-agent
+sudo ./network-config.sh
+```
+
+**Time:** 5 minutes
+**Requires:** sudo access, 2 network interfaces
+
+---
+
+### **📹 discover-cameras.sh** - Find Cameras on Network
+
+**What it does:**
+- ✅ Scans camera network with arp-scan
+- ✅ Lists DHCP leases
+- ✅ Tests common RTSP URLs
+- ✅ Saves discovered cameras to file
+
+**Use when:**
+- 🎯 Finding cameras after physical connection
+- 🎯 Testing camera connectivity
+- 🎯 Getting RTSP stream URLs
+
+**Usage:**
+```bash
+cd platebridge/pod-agent
+sudo ./discover-cameras.sh
+```
+
+**Time:** 1 minute
+**Requires:** sudo access, cameras connected
+
+---
+
+## 🎯 Quick Decision Guide
+
+### **I want to set up a complete production POD**
+```bash
+sudo ./install-complete.sh
+```
+→ Installs EVERYTHING (Docker, Frigate, network, agent, etc.)
+
+---
+
+### **I already have Docker, just need network + agent**
+```bash
+# 1. Configure network
+sudo ./network-config.sh
+
+# 2. Set up agent
 ./setup.sh
 
-# 4. Start the agent
-sudo systemctl start platebridge-agent
-sudo systemctl enable platebridge-agent
+# 3. Manually set up Frigate docker-compose
 ```
 
-## What This Does
+---
 
-- Watches Frigate for license plate detections
-- Sends detections to your PlateBridge portal
-- Receives allow/deny decisions
-- Triggers gate opening for authorized plates
-- Caches whitelist locally for offline operation
-- Auto-reconnects if network drops
+### **I have everything except the Python agent**
+```bash
+./setup.sh
+```
+→ Just installs the agent with virtual environment
 
-## Requirements
+---
 
-- Python 3.7+
-- Frigate with MQTT enabled
-- Network access to your PlateBridge portal
+### **I need to reconfigure network only**
+```bash
+sudo ./network-config.sh
+```
+→ Just reconfigures dual-NIC network
 
-## Files
+---
 
-- `agent.py` - Main agent script
-- `setup.sh` - Automated installation script
-- `config.example.yaml` - Configuration template
-- `requirements.txt` - Python dependencies
-- `README.md` - This file
+### **I want to find cameras on my network**
+```bash
+sudo ./discover-cameras.sh
+```
+→ Scans and tests camera connections
 
-## Documentation
+---
 
-See [POD_SETUP_GUIDE.md](../POD_SETUP_GUIDE.md) for detailed installation and troubleshooting instructions.
+## 📊 Feature Comparison Table
 
-## Configuration
+| Feature | install-complete.sh | setup.sh | network-config.sh | discover-cameras.sh |
+|---------|---------------------|----------|-------------------|---------------------|
+| **Docker** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Frigate** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Dual-NIC Network** | ✅ Yes | ❌ No | ✅ Yes | ❌ No |
+| **DHCP Server** | ✅ Yes | ❌ No | ✅ Yes | ❌ No |
+| **Firewall/NAT** | ✅ Yes | ❌ No | ✅ Yes | ❌ No |
+| **Python Agent** | ✅ Yes | ✅ Yes | ❌ No | ❌ No |
+| **Virtual Env** | ✅ Yes | ✅ Yes | ❌ No | ❌ No |
+| **Systemd Service** | ✅ Yes | ✅ Yes | ❌ No | ❌ No |
+| **Camera Discovery** | ✅ Yes | ❌ No | ❌ No | ✅ Yes |
+| **Interactive Config** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No |
+| **Requires sudo** | ✅ Yes | Partial | ✅ Yes | ✅ Yes |
+| **Time Required** | 15-20 min | 5 min | 5 min | 1 min |
+| **Best For** | Production | Dev/Test | Manual Setup | Finding Cameras |
 
-After running setup, edit `config.yaml`:
+---
 
+## 🚀 Recommended Installation Path
+
+### **For Production POD (Most Common):**
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-org/platebridge.git
+cd platebridge/pod-agent
+
+# 2. Run complete installer (installs everything!)
+sudo ./install-complete.sh
+
+# 3. Connect cameras physically to LAN interface (eth1)
+
+# 4. Discover cameras
+sudo ./discover-cameras.sh
+
+# 5. Configure Frigate with discovered camera URLs
+sudo nano /opt/platebridge/frigate/config/config.yml
+
+# 6. Restart services
+cd /opt/platebridge/docker
+docker compose restart
+
+# Done! ✅
+```
+
+**Total time: ~20 minutes**
+
+---
+
+### **For Development/Testing:**
+
+```bash
+# 1. Install Docker manually
+curl -fsSL https://get.docker.com | sudo sh
+
+# 2. Clone repository
+git clone https://github.com/your-org/platebridge.git
+cd platebridge/pod-agent
+
+# 3. Install agent only (without Docker/Frigate)
+./setup.sh
+
+# 4. Set up Frigate manually (create docker-compose.yml)
+
+# Done! ✅
+```
+
+---
+
+## 📁 What Gets Installed & Created
+
+### **After Complete Installation:**
+
+```
+/opt/platebridge/
+├── venv/                          # Python virtual environment
+│   ├── bin/python                # Isolated Python
+│   └── lib/python3.X/...         # Agent dependencies
+├── config/                        # Agent configuration files
+├── docker/
+│   ├── docker-compose.yml        # Frigate + MQTT + Agent services
+│   ├── .env                      # Portal credentials (YOU CONFIGURE)
+│   └── .env.example              # Configuration template
+├── frigate/
+│   ├── config/
+│   │   └── config.yml           # Frigate camera configuration
+│   ├── storage/                 # Video recordings (grows large!)
+│   └── media/                   # Frigate snapshots
+├── logs/                         # Agent logs
+├── recordings/                   # Local backup recordings
+├── agent.py                      # Python POD agent
+├── requirements.txt              # Python dependencies
+├── discover-cameras.sh           # Camera discovery script
+└── network-info.txt              # Network config summary
+
+/etc/netplan/
+└── 01-platebridge-network.yaml   # Network configuration
+
+/etc/dnsmasq.d/
+└── platebridge-cameras.conf      # DHCP server config
+
+/etc/systemd/system/
+└── platebridge-pod.service       # Auto-start service
+```
+
+---
+
+## 🔧 Post-Installation Configuration
+
+### **1. Access Frigate Web UI:**
+```
+http://<pod-ip>:5000
+```
+*Use your POD's IP address from eth0 (WAN interface)*
+
+### **2. Configure Portal Connection:**
+
+Edit the environment file:
+```bash
+sudo nano /opt/platebridge/docker/.env
+```
+
+```ini
+PORTAL_URL=https://your-portal.platebridge.io
+POD_API_KEY=your-api-key-from-portal
+SITE_ID=your-site-id-from-portal
+```
+
+### **3. Add Cameras to Frigate:**
+
+```bash
+sudo nano /opt/platebridge/frigate/config/config.yml
+```
+
+Example camera configuration:
 ```yaml
-portal_url: "https://your-portal.vercel.app"
-api_key: "your-api-key"
-site_id: "your-site-id"
-pod_id: "front-gate"
+cameras:
+  front_gate:
+    ffmpeg:
+      inputs:
+        - path: rtsp://192.168.100.100:554/stream
+          roles:
+            - detect
+            - record
+    detect:
+      width: 1280
+      height: 720
+    record:
+      enabled: true
+    snapshots:
+      enabled: true
 ```
 
-## Commands
-
+### **4. Restart Services:**
 ```bash
-# View logs
-sudo journalctl -u platebridge-agent -f
-
-# Check status
-sudo systemctl status platebridge-agent
-
-# Restart
-sudo systemctl restart platebridge-agent
-
-# Stop
-sudo systemctl stop platebridge-agent
+cd /opt/platebridge/docker
+docker compose restart
 ```
 
-## Support
+---
 
-Check logs first:
+## 🛠️ Common Operations
+
+### **View Logs:**
 ```bash
-sudo journalctl -u platebridge-agent -f
+# All Docker services
+cd /opt/platebridge/docker
+docker compose logs -f
+
+# Frigate only
+docker compose logs -f frigate
+
+# Agent only
+docker compose logs -f platebridge-agent
+
+# System service
+sudo journalctl -u platebridge-pod -f
 ```
 
-Look for:
-- "Connected to Frigate MQTT broker" - MQTT is working
-- "License plate detected" - Frigate is sending events
-- "Portal response" - Communication with portal is working
-- "GATE OPENED" - Gate control is working
+### **Discover Cameras:**
+```bash
+sudo /opt/platebridge/discover-cameras.sh
+```
+
+### **Check Network Status:**
+```bash
+# View saved network configuration
+cat /opt/platebridge/network-info.txt
+
+# Check network interfaces
+ip addr show
+
+# View DHCP leases (what IPs cameras got)
+cat /var/lib/misc/dnsmasq.leases
+
+# Scan camera network manually
+sudo arp-scan --interface=eth1 192.168.100.0/24
+```
+
+### **Restart Services:**
+```bash
+# Restart all services
+cd /opt/platebridge/docker
+docker compose restart
+
+# Restart specific service
+docker compose restart frigate
+docker compose restart platebridge-agent
+
+# Restart DHCP server
+sudo systemctl restart dnsmasq
+```
+
+### **Check Service Status:**
+```bash
+# Docker services
+cd /opt/platebridge/docker
+docker compose ps
+
+# Docker daemon
+sudo systemctl status docker
+
+# DHCP server
+sudo systemctl status dnsmasq
+
+# POD startup service
+sudo systemctl status platebridge-pod
+```
+
+---
+
+## 🆘 Troubleshooting
+
+### **Docker not starting:**
+```bash
+sudo systemctl status docker
+sudo systemctl start docker
+sudo journalctl -u docker -n 50
+```
+
+### **Network issues (cameras not getting IPs):**
+```bash
+# Check interfaces are up
+ip addr show
+
+# Reapply network config
+sudo netplan apply
+
+# Check DHCP server
+sudo systemctl status dnsmasq
+sudo systemctl restart dnsmasq
+
+# View DHCP logs
+sudo journalctl -u dnsmasq -f
+```
+
+### **Cameras not found on network:**
+```bash
+# Check DHCP is running
+sudo systemctl status dnsmasq
+
+# Check DHCP leases
+cat /var/lib/misc/dnsmasq.leases
+
+# Scan manually
+sudo arp-scan --interface=eth1 192.168.100.0/24
+
+# Check if LAN interface has IP
+ip addr show eth1
+
+# Ping camera network gateway
+ping 192.168.100.1
+```
+
+### **Agent not connecting to portal:**
+```bash
+# Check .env configuration
+cat /opt/platebridge/docker/.env
+
+# Test portal connectivity
+curl -v https://your-portal.platebridge.io/api/gatewise/health
+
+# Check agent logs
+docker compose logs platebridge-agent
+
+# Verify portal credentials in portal UI
+```
+
+### **Frigate not detecting plates:**
+```bash
+# Check Frigate is running
+docker compose ps
+
+# View Frigate logs
+docker compose logs frigate
+
+# Access Frigate UI
+# http://<pod-ip>:5000
+
+# Test camera RTSP stream
+ffplay -rtsp_transport tcp rtsp://192.168.100.100:554/stream
+```
+
+### **Python package conflicts:**
+See `PYTHON_PACKAGE_FIX.md` for complete guide on virtual environments.
+
+---
+
+## 📚 Additional Documentation
+
+- **Quick Start Guide:** `../POD_QUICK_START.md`
+- **Dual-NIC Setup Details:** `../POD_DUAL_NIC_SETUP.md`
+- **Complete POD Guide:** `../POD_SETUP_GUIDE.md`
+- **Python Package Issues:** `PYTHON_PACKAGE_FIX.md`
+- **Network Config (after install):** `/opt/platebridge/network-info.txt`
+- **Cheat Sheet:** `../POD_CHEAT_SHEET.md`
+
+---
+
+## 🎯 Quick Reference
+
+### **Installation Scripts:**
+
+| Script | Does Everything? | Use Case |
+|--------|------------------|----------|
+| `install-complete.sh` | ✅ YES | Production POD from scratch |
+| `setup.sh` | ❌ Agent only | Have Docker already |
+| `network-config.sh` | ❌ Network only | Manual setup |
+| `discover-cameras.sh` | ❌ Scan only | Find cameras |
+
+### **Answer: Does setup.sh install everything?**
+
+**NO** - `setup.sh` only installs the Python agent.
+
+**YES** - `install-complete.sh` installs EVERYTHING:
+- Docker ✅
+- Frigate ✅
+- Network (dual-NIC) ✅
+- DHCP ✅
+- Firewall ✅
+- Agent ✅
+- Camera discovery ✅
+
+---
+
+## 🎉 Summary
+
+**Quick Answer to Your Question:**
+
+> **Does setup.sh install everything (Docker, Frigate, network, etc.)?**
+
+**NO.** `setup.sh` only installs the Python agent with virtual environment.
+
+**For everything, use:** `sudo ./install-complete.sh`
+
+**What each script does:**
+- `install-complete.sh` = **Everything** (Docker + Frigate + Network + Agent)
+- `setup.sh` = **Agent only** (Python + venv + systemd)
+- `network-config.sh` = **Network only** (Dual-NIC + DHCP + NAT)
+- `discover-cameras.sh` = **Camera scanning** (arp-scan + RTSP test)
+
+**For production POD:** Use `install-complete.sh` - it's your all-in-one solution! 🚀
+
+---
+
+## 💡 What This Agent Does
+
+Once installed, the PlateBridge POD agent:
+
+- ✅ Watches Frigate for license plate detections
+- ✅ Sends detections to your PlateBridge portal
+- ✅ Receives allow/deny decisions from portal
+- ✅ Triggers gate opening for authorized plates
+- ✅ Caches whitelist locally for offline operation
+- ✅ Auto-reconnects if network drops
+- ✅ Provides heartbeat monitoring
+- ✅ Handles camera streaming via portal
+
+---
+
+## 📞 Support
+
+**Check logs first:**
+```bash
+# Docker logs
+cd /opt/platebridge/docker && docker compose logs -f
+
+# System logs
+sudo journalctl -u platebridge-pod -f
+```
+
+**Look for:**
+- "Connected to Frigate MQTT broker" - MQTT working ✅
+- "License plate detected" - Frigate sending events ✅
+- "Portal response" - Portal communication working ✅
+- "GATE OPENED" - Gate control working ✅
+
+**Still stuck?**
+- Documentation: `../POD_QUICK_START.md`
+- Cheat sheet: `../POD_CHEAT_SHEET.md`
+- Network config: `/opt/platebridge/network-info.txt`
