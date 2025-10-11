@@ -100,6 +100,12 @@ install_dependencies() {
     apt-get update -qq
 
     print_step "Installing required packages..."
+
+    # Install packages in stages to avoid conflicts
+    # NOTE: We skip 'ufw' because it conflicts with iptables-persistent
+    # We're using manual iptables rules which is more appropriate for a router
+
+    # Stage 1: Core utilities
     apt-get install -y \
         curl \
         wget \
@@ -107,22 +113,27 @@ install_dependencies() {
         python3 \
         python3-pip \
         python3-venv \
-        dnsmasq \
-        iptables \
-        iptables-persistent \
         net-tools \
         iproute2 \
         arp-scan \
         ffmpeg \
         avahi-daemon \
         jq \
-        ufw \
-        fail2ban \
-        unattended-upgrades \
-        apt-listchanges \
         logwatch
 
-    print_success "System dependencies installed"
+    # Stage 2: Network packages
+    apt-get install -y \
+        iptables \
+        iptables-persistent \
+        dnsmasq
+
+    # Stage 3: Security packages
+    apt-get install -y \
+        fail2ban \
+        unattended-upgrades \
+        apt-listchanges
+
+    print_success "System dependencies installed (using iptables without ufw)"
 }
 
 install_docker() {
