@@ -1,394 +1,449 @@
-# Connect Your First POD - Quick Start Guide
+# 🚀 POD Quick Start Guide
 
-Get your PlateBridge POD up and running in 10 minutes!
+Get your PlateBridge POD running in 30 minutes or less!
 
-## What is a POD?
+---
 
-A POD is a device (Raspberry Pi, NUC, or any Linux box) at your gate that:
-- Connects to IP cameras with license plate detection
-- Streams live video to your portal
-- Records clips when plates are detected
-- Auto-reports detections to portal
-- Auto-registers itself and cameras
-- Communicates with your cloud portal for access control
+## 🎯 Choose Your Path
 
-## Quick Setup (3 Steps)
+### **Method 1: Golden Image (Production) - 10 min**
+✅ Best for: Multiple PODs, production deployment
+✅ Pre-built, tested, ready to flash
+✅ Requires: Golden image file + USB drive
 
-### Step 1: Get Your Credentials from Portal
+### **Method 2: Auto Install Script - 20 min**
+✅ Best for: Development, single POD
+✅ Fresh Ubuntu install + one command
+✅ Requires: Ubuntu 24.04 installed
 
-1. **Login to your PlateBridge portal**
-   - Go to https://your-portal.vercel.app
+### **Method 3: Manual Docker - 5 min**
+✅ Best for: Quick testing
+✅ Existing Ubuntu system
+✅ Requires: Docker installed
 
-2. **Create/Find Your Site**
-   - Navigate to "Properties" or "Sites"
-   - Create a new site or select existing one
-   - Copy the **Site ID** (UUID format)
+---
 
-3. **Create/Find Your Camera**
-   - Navigate to "Cameras"
-   - Create a new camera or select existing
-   - Copy the **Camera ID** (UUID format)
+# 🚀 Method 1: Golden Image (Recommended)
 
-4. **Generate POD API Key**
-   - Navigate to "Pods" page
-   - Click "Generate API Key"
-   - Copy the key (starts with `pbk_`)
-   - **Save it now - you won't see it again!**
+## What You Need
+- POD hardware (8GB+ storage, 1GB+ RAM)
+- Golden image file (`.img.xz` or `.iso`)
+- USB drive (4GB+ for config)
+- Network connection
 
-5. **Get Your Company ID**
-   - Navigate to "Companies"
-   - Copy your **Company ID** (UUID format)
+## Step 1: Flash Image to POD
 
-### Step 2: Install on Your POD Device
-
-**SSH into your POD:**
+**Option A: Direct disk clone (fastest)**
 ```bash
-ssh pi@your-pod-ip
-# or ssh ubuntu@your-pod-ip
+# Decompress
+unxz platebridge-pod-v1.0.0.img.xz
+
+# Flash to POD disk
+sudo dd if=platebridge-pod-v1.0.0.img of=/dev/sdX bs=4M status=progress
+
+# Expand to use full disk
+sudo growpart /dev/sdX 1
+sudo resize2fs /dev/sdX1
 ```
 
-**Download and run the installer:**
+**Option B: Bootable USB install**
 ```bash
-curl -o install-pod.sh https://your-portal.vercel.app/install-pod.sh
+# Flash ISO to USB
+sudo dd if=platebridge-pod-v1.0.0.iso of=/dev/sdX bs=4M
+
+# Or use balenaEtcher (GUI)
+```
+
+## Step 2: Create Config USB
+
+**On any computer, create file on USB root:**
+
+`platebridge-config.yaml`:
+```yaml
+portal_url: https://your-portal.platebridge.io
+site_id: abc-123-def-456
+```
+
+**Optional settings:**
+```yaml
+portal_url: https://your-portal.platebridge.io
+site_id: abc-123-def-456
+timezone: America/New_York
+hostname: pod-main-gate
+static_ip: 192.168.1.100
+gateway: 192.168.1.1
+dns: 8.8.8.8
+```
+
+## Step 3: Boot POD
+
+1. Insert config USB
+2. Connect network cable
+3. Power on
+4. Wait 2-3 minutes
+
+**What happens automatically:**
+- ✅ Reads USB config
+- ✅ Registers with portal
+- ✅ Downloads docker-compose.yml
+- ✅ Starts services
+- ✅ Sends heartbeat
+
+## Step 4: Verify in Portal
+
+Navigate to: `https://your-portal.platebridge.io/pods`
+
+You should see:
+- 🟢 POD status: Online
+- Last seen: "Just now"
+- Cameras: 0 (until you add them)
+
+**Done! POD is running! 🎉**
+
+---
+
+# 🛠️ Method 2: Auto Install Script
+
+## Step 1: Install Ubuntu 24.04
+
+1. Download [Ubuntu Server 24.04 LTS](https://ubuntu.com/download/server)
+2. Create bootable USB with balenaEtcher
+3. Install on POD hardware
+4. Enable SSH during install
+5. Update system:
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+## Step 2: Run Install Script
+
+**Download from portal:**
+```bash
+curl -fsSL https://your-portal.platebridge.io/install-pod.sh -o install-pod.sh
 chmod +x install-pod.sh
 sudo ./install-pod.sh
 ```
 
-**Or manual installation:**
+**Or use the public installation script:**
 ```bash
-# Install dependencies
-sudo apt-get update
-sudo apt-get install -y python3 python3-pip ffmpeg
-
-# Create directory
-sudo mkdir -p /opt/platebridge-pod
-cd /opt/platebridge-pod
-
-# Download files (copy from your portal's pod-agent folder)
-# Copy: complete_pod_agent.py, config.example.yaml, requirements.txt
-
-# Install Python packages
-sudo pip3 install -r requirements.txt
-
-# Create config
-sudo cp config.example.yaml config.yaml
-sudo nano config.yaml  # Edit with your values
+# Interactive installation
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/platebridge/pod/main/install.sh)"
 ```
 
-### Step 3: Configure and Start
+**Script will prompt:**
+```
+Enter Portal URL: https://your-portal.platebridge.io
+Enter Site ID: abc-123-def-456
+```
 
-**Edit config.yaml:**
+**Installation includes:**
+- ✅ Docker + Compose
+- ✅ PlateBridge directories
+- ✅ Auto-registration
+- ✅ Service startup
+- ✅ Heartbeat setup
+
+**Takes 10-15 minutes**
+
+## Step 3: Verify
+
+```bash
+# Check services
+cd /opt/platebridge/docker
+docker compose ps
+
+# View logs
+docker compose logs -f
+```
+
+**Check portal:** `https://your-portal.platebridge.io/pods`
+
+**Done! POD is running! 🎉**
+
+---
+
+# 🐳 Method 3: Manual Docker (Quick Test)
+
+## Step 1: Install Docker
+
+```bash
+# Quick Docker install
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+## Step 2: Create Docker Compose
+
+```bash
+mkdir ~/platebridge-pod
+cd ~/platebridge-pod
+nano docker-compose.yml
+```
+
+**Minimal compose file:**
 ```yaml
-portal_url: "https://your-portal.vercel.app"
-pod_api_key: "pbk_xxxxx"  # From Step 1
-pod_id: "main-gate-pod"
-camera_id: "your-camera-uuid"  # From Step 1
-site_id: "your-site-uuid"  # From Step 1
-company_id: "your-company-uuid"  # From Step 1
-camera_rtsp_url: "rtsp://192.168.1.100:554/stream"
+version: '3.8'
+
+services:
+  agent:
+    image: platebridge/pod-agent:latest
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    volumes:
+      - ./data:/data
+      - ./recordings:/recordings
+      - /dev:/dev
+    environment:
+      - POD_ID=${POD_ID}
+      - API_KEY=${API_KEY}
+      - PORTAL_URL=${PORTAL_URL}
+    devices:
+      - /dev/video0:/dev/video0
+
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    restart: unless-stopped
+    volumes:
+      - ./frigate:/config
+      - ./recordings:/media/frigate
+    ports:
+      - "5000:5000"
+      - "8554:8554"
 ```
 
-**Start the POD agent:**
+## Step 3: Configure
+
+**Create `.env` file:**
 ```bash
-# Test run first
-sudo python3 complete_pod_agent.py config.yaml
-
-# If it works, create systemd service:
-sudo nano /etc/systemd/system/platebridge-pod.service
+POD_ID=your-pod-uuid
+API_KEY=your-api-key
+PORTAL_URL=https://your-portal.platebridge.io
 ```
 
-**Service file content:**
-```ini
-[Unit]
-Description=PlateBridge Pod Agent
-After=network.target
+**Get these values:**
+1. Go to portal
+2. Navigate to Sites → Your Site
+3. Click "Add POD"
+4. Copy POD_ID and API_KEY
 
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/platebridge-pod
-ExecStart=/usr/bin/python3 /opt/platebridge-pod/complete_pod_agent.py /opt/platebridge-pod/config.yaml
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Enable and start:**
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable platebridge-pod
-sudo systemctl start platebridge-pod
-sudo systemctl status platebridge-pod
-```
-
-## Verify It's Working
-
-### 1. Check Logs
-```bash
-sudo journalctl -u platebridge-pod -f
-```
-
-You should see:
-```
-PlateBridge Complete Pod Agent
-Portal: https://your-portal.vercel.app
-Pod ID: main-gate-pod
-Whitelist refreshed: X plates
-Connected to MQTT broker
-Stream started successfully
-Starting stream server on port 8000
-Heartbeat sent
-```
-
-### 2. Check Portal
-
-**Go to portal → Pods page:**
-- Your POD should show as "Online"
-- Last heartbeat should be recent
-
-**Go to portal → Cameras page:**
-- Your camera should show as "Active"
-- Click "View Live Stream" - you should see video
-
-### 3. Test Detection
-
-**Manually trigger a detection:**
-```bash
-curl -X POST "https://your-portal.vercel.app/api/pod/detect" \
-  -H "Authorization: Bearer pbk_your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "site_id": "your-site-id",
-    "plate": "TEST123",
-    "camera": "camera-1",
-    "pod_name": "main-gate-pod"
-  }'
-```
-
-Check portal's Audit Logs - you should see the detection.
-
-## Common Issues
-
-### POD Shows Offline
-
-**Check service is running:**
-```bash
-sudo systemctl status platebridge-pod
-```
-
-**Check network connectivity:**
-```bash
-ping your-portal.vercel.app
-```
-
-**Check API key:**
-```bash
-# Make sure pod_api_key in config.yaml is correct
-cat /opt/platebridge-pod/config.yaml | grep pod_api_key
-```
-
-### Stream Not Working
-
-**Check FFmpeg is running:**
-```bash
-ps aux | grep ffmpeg
-```
-
-**Check RTSP URL:**
-```bash
-ffplay rtsp://your-camera-ip:554/stream
-# Press Q to quit
-```
-
-**Check stream files:**
-```bash
-ls -la /tmp/hls_output/
-# Should see stream.m3u8 and segment files
-```
-
-**Check stream port is open:**
-```bash
-curl http://localhost:8000/health
-# Should return: {"status":"ok","pod_id":"...","streaming":true}
-```
-
-### Recordings Not Uploading
-
-**Check recordings directory:**
-```bash
-ls -la /tmp/recordings/
-```
-
-**Check portal API:**
-```bash
-curl "https://your-portal.vercel.app/api/pod/recordings/upload-url" \
-  -H "Authorization: Bearer pbk_your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{"camera_id":"your-camera-id","filename":"test.mp4"}'
-```
-
-**Check Supabase Storage:**
-- Login to Supabase dashboard
-- Go to Storage
-- Check "camera-recordings" bucket exists
-
-## Environment Variables (Portal Side)
-
-Set these in Vercel:
-
-**Required:**
-- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
-
-**For Streaming:**
-- `POD_STREAM_SECRET` - Shared secret for stream tokens (same as in config.yaml)
-
-## Configuration Options
-
-### Enable/Disable Features
-
-```yaml
-# In config.yaml:
-
-enable_streaming: false  # Disable live streaming
-enable_mqtt: false  # Disable Frigate integration
-record_on_detection: false  # Disable auto-recording
-```
-
-### Adjust Performance
-
-```yaml
-# Lower quality for slower networks:
-stream_quality: "low"  # Options: low, medium, high
-
-# Record shorter clips:
-recording_duration: 15  # Seconds
-
-# Reduce refresh frequency:
-whitelist_refresh_interval: 600  # 10 minutes
-heartbeat_interval: 120  # 2 minutes
-```
-
-### Multiple Cameras
-
-If you have multiple cameras on one POD:
-
-1. Create separate camera entries in portal
-2. Run multiple agent instances with different configs:
+## Step 4: Start
 
 ```bash
-# Camera 1
-python3 complete_pod_agent.py config_camera1.yaml &
-
-# Camera 2
-python3 complete_pod_agent.py config_camera2.yaml &
+docker compose pull
+docker compose up -d
+docker compose logs -f
 ```
 
-Or use a process manager like supervisor.
+**Done! POD is running! 🎉**
 
-## Network Requirements
+---
 
-**Outbound (POD → Internet):**
-- HTTPS (443) to your portal domain
-- HTTPS (443) to Supabase (for uploads)
+# 📹 Adding Cameras
 
-**Inbound (Internet → POD) - Optional for streaming:**
-- Port 8000 (or custom stream_port)
-- Only needed if you want portal users to access live streams
-- Can use VPN/Tailscale instead of opening ports
+## USB Camera
 
-## Security Best Practices
-
-1. **API Key Security:**
-   - Never commit config.yaml to git
-   - Rotate keys regularly in portal
-   - Each POD should have unique API key
-
-2. **Network Security:**
-   - Use firewall to restrict outbound traffic
-   - Consider VPN for stream access
-   - Keep POD device updated
-
-3. **Stream Security:**
-   - Tokens expire in 10 minutes
-   - Use same `stream_secret` in config and portal
-   - Never expose stream port without token validation
-
-## Production Checklist
-
-- [ ] POD shows online in portal
-- [ ] Live stream accessible from portal
-- [ ] Test detection logged in audit
-- [ ] Recording uploads working
-- [ ] Heartbeat every 60 seconds
-- [ ] Whitelist refreshing every 5 minutes
-- [ ] Service auto-starts on boot
-- [ ] Logs being monitored
-- [ ] API key backed up securely
-- [ ] Firewall rules configured
-
-## Next Steps
-
-1. **Add plates to whitelist** in portal
-2. **Test gate integration** if using Gatewise
-3. **Set up monitoring** (check logs daily)
-4. **Configure alerts** for POD offline
-5. **Review recordings** periodically
-
-## Support
-
-**Check logs first:**
+1. **Plug in USB camera**
+2. **Verify detected:**
 ```bash
-sudo journalctl -u platebridge-pod -f
+ls -la /dev/video*
 ```
+3. **Auto-configured!** POD detects and sets up automatically
 
-**Common log messages:**
+## Network Camera (RTSP)
 
-✅ Good:
-- "Whitelist refreshed: X plates"
-- "Heartbeat sent"
-- "Stream started successfully"
-- "Portal response: action=allow, gate_opened=true"
+**Via Portal:**
+1. Go to Cameras page
+2. Click "Add Camera"
+3. Enter: `rtsp://username:password@192.168.1.100:554/stream`
+4. Save
 
-❌ Problems:
-- "Failed to fetch whitelist" - Check portal URL and API key
-- "MQTT connection failed" - Check MQTT settings
-- "Upload failed" - Check Supabase config
-- "Invalid token" - Check stream_secret matches portal
+**Camera starts streaming immediately!**
 
-**Test endpoints:**
+---
+
+# 🧪 Test Your POD
+
+## Test 1: Check Status
 ```bash
-# Health check
-curl http://localhost:8000/health
-
-# Portal connectivity
-curl https://your-portal.vercel.app/api/health
+# Portal: https://your-portal.platebridge.io/pods
+# Should see: 🟢 Online
 ```
 
-## Architecture Overview
-
-```
-[Camera] → RTSP → [POD Device]
-                      ↓
-    ┌─────────────────┴─────────────────┐
-    │                                   │
-    ▼                                   ▼
-[FFmpeg]                         [Agent Process]
-    │                                   │
-    ├─ HLS Streaming                   ├─ MQTT Listener
-    ├─ Recording                        ├─ Plate Detection
-    └─ Port 8000                        ├─ Whitelist Cache
-                                        ├─ Heartbeat
-                                        └─ Upload Manager
-                                              │
-                                              ▼
-                                    [Portal + Supabase]
-                                              │
-                                              ▼
-                                    [Users via Web Browser]
+## Test 2: Test Camera
+```bash
+# Show license plate to camera
+# Portal: Navigate to /plates
+# Should see new detection appear
 ```
 
-That's it! Your POD is now connected and serving camera feeds to your portal.
+## Test 3: Remote Command
+```bash
+# Portal: Open POD detail
+# Click "Test Cameras"
+# Check Command History tab
+# Status: Queued → Completed
+```
+
+---
+
+# 🔧 Troubleshooting
+
+## POD Won't Register
+
+**Check network:**
+```bash
+ping 8.8.8.8
+curl https://your-portal.platebridge.io
+```
+
+**Check logs:**
+```bash
+sudo journalctl -u platebridge-init.service -f
+```
+
+**Fix:**
+- Verify portal URL is correct
+- Verify site ID is correct
+- Check firewall settings
+
+## POD Shows Offline
+
+**Restart heartbeat:**
+```bash
+sudo systemctl restart platebridge-heartbeat.timer
+```
+
+**Manual test:**
+```bash
+/opt/platebridge/bin/platebridge-heartbeat.sh
+```
+
+## Camera Not Working
+
+**Check USB:**
+```bash
+lsusb
+ls -la /dev/video*
+```
+
+**Restart services:**
+```bash
+cd /opt/platebridge/docker
+docker compose restart
+```
+
+---
+
+# 📊 Health Check Script
+
+```bash
+#!/bin/bash
+echo "=== POD Health Check ==="
+
+# Initialized?
+[ -f /var/lib/platebridge/initialized ] && echo "✅ Initialized" || echo "❌ Not initialized"
+
+# Docker running?
+systemctl is-active docker >/dev/null && echo "✅ Docker running" || echo "❌ Docker down"
+
+# Services running?
+cd /opt/platebridge/docker 2>/dev/null
+if [ $? -eq 0 ]; then
+    docker compose ps
+else
+    echo "❌ No services found"
+fi
+
+# Heartbeat active?
+systemctl is-active platebridge-heartbeat.timer >/dev/null && echo "✅ Heartbeat active" || echo "❌ Heartbeat down"
+
+# Cameras?
+echo "Cameras: $(ls -1 /dev/video* 2>/dev/null | wc -l)"
+
+# Network?
+ping -c 1 8.8.8.8 >/dev/null && echo "✅ Network OK" || echo "❌ Network down"
+
+echo "=== Check Complete ==="
+```
+
+---
+
+# 📁 Important Locations
+
+```
+/opt/platebridge/
+├── bin/
+│   ├── platebridge-init.sh      # First boot setup
+│   └── platebridge-heartbeat.sh # Status reporting
+├── config/
+│   └── pod.conf                 # POD settings
+├── docker/
+│   ├── docker-compose.yml       # Services
+│   └── .env                     # Environment
+├── logs/
+│   └── init.log                 # Init log
+└── recordings/                  # Video files
+```
+
+---
+
+# 🎯 Quick Commands
+
+```bash
+# View logs
+sudo journalctl -u platebridge-init.service -f
+
+# Check services
+cd /opt/platebridge/docker && docker compose ps
+
+# Restart services
+cd /opt/platebridge/docker && docker compose restart
+
+# Update services
+cd /opt/platebridge/docker && docker compose pull && docker compose up -d
+
+# Manual heartbeat
+/opt/platebridge/bin/platebridge-heartbeat.sh
+
+# Re-initialize
+sudo rm /var/lib/platebridge/initialized && sudo reboot
+```
+
+---
+
+# 📚 Next Steps
+
+1. ✅ **Add cameras** - USB or network cameras
+2. ✅ **Test detection** - Show license plate
+3. ✅ **Set up alerts** - Configure notifications
+4. ✅ **Monitor health** - Check metrics in portal
+5. ✅ **Remote access** - Set up Tailscale (optional)
+
+---
+
+# 🆘 Need Help?
+
+**Documentation:**
+- Full guide: `pod-agent/golden-image/GOLDEN_IMAGE_GUIDE.md`
+- POD setup: `POD_SETUP_GUIDE.md`
+- Portal docs: https://docs.platebridge.io
+
+**Support:**
+- Email: support@platebridge.io
+- Portal: Click "Help" button
+
+---
+
+# ✅ Summary
+
+**Fastest Path:**
+1. Flash golden image → 2 min
+2. Create config USB → 1 min
+3. Boot POD → 3 min
+4. Verify in portal → 1 min
+
+**Total: 7 minutes to running POD! 🚀**
+
+Choose your method, follow the steps, and you'll have a POD running in no time!
