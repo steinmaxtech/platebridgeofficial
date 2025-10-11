@@ -66,7 +66,7 @@ cd platebridge/pod-agent
 ### **🌐 network-config.sh** - Network Setup Only
 
 **What it configures:**
-- ✅ Dual-NIC setup (eth0 WAN, eth1 LAN)
+- ✅ Dual-NIC setup (enp3s0 WAN, enp1s0 LAN)
 - ✅ Static IP for camera network (192.168.100.1)
 - ✅ DHCP server (dnsmasq)
 - ✅ NAT/IP forwarding (iptables)
@@ -196,7 +196,7 @@ cd platebridge/pod-agent
 # 2. Run complete installer (installs everything!)
 sudo ./install-complete.sh
 
-# 3. Connect cameras physically to LAN interface (eth1)
+# 3. Connect cameras physically to LAN interface (enp1s0)
 
 # 4. Discover cameras
 sudo ./discover-cameras.sh
@@ -279,7 +279,7 @@ cd platebridge/pod-agent
 ```
 http://<pod-ip>:5000
 ```
-*Use your POD's IP address from eth0 (WAN interface)*
+*Use your POD's IP address from enp3s0 (WAN interface)*
 
 ### **2. Configure Portal Connection:**
 
@@ -362,7 +362,7 @@ ip addr show
 cat /var/lib/misc/dnsmasq.leases
 
 # Scan camera network manually
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 ```
 
 ### **Restart Services:**
@@ -431,10 +431,10 @@ sudo systemctl status dnsmasq
 cat /var/lib/misc/dnsmasq.leases
 
 # Scan manually
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 
 # Check if LAN interface has IP
-ip addr show eth1
+ip addr show enp1s0
 
 # Ping camera network gateway
 ping 192.168.100.1

@@ -14,7 +14,7 @@ sudo ./network-config.sh
 ### **Step 2: Connect Cameras**
 ```
 1. Plug cameras into LAN switch
-2. Connect switch to POD's LAN port (eth1)
+2. Connect switch to POD's LAN port (enp1s0)
 3. Power on cameras
 4. Cameras auto-get IPs via DHCP
 ```
@@ -57,7 +57,7 @@ sudo python3 agent.py
 ## 📊 Network Architecture
 
 ```
-Internet ──▶ WAN (eth0) ──▶ POD (192.168.100.1) ──▶ LAN (eth1) ──▶ Cameras
+Internet ──▶ WAN (enp3s0) ──▶ POD (192.168.100.1) ──▶ LAN (enp1s0) ──▶ Cameras
                                                           │
                                                           ├─ Camera 1: .100
                                                           ├─ Camera 2: .101
@@ -76,7 +76,7 @@ sudo netplan apply
 
 ### Cameras Not Found?
 ```bash
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 cat /var/lib/misc/dnsmasq.leases
 sudo systemctl restart dnsmasq
 ```
@@ -113,7 +113,7 @@ ip addr show
 cat /var/lib/misc/dnsmasq.leases
 
 # 3. Scan cameras
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 
 # 4. Test RTSP
 ffprobe rtsp://192.168.100.100:554/stream
@@ -128,8 +128,8 @@ tail -f /opt/platebridge/logs/pod-agent.log
 
 | Setting | Value |
 |---------|-------|
-| WAN Interface | eth0 (DHCP) |
-| LAN Interface | eth1 (Static) |
+| WAN Interface | enp3s0 (DHCP) |
+| LAN Interface | enp1s0 (Static) |
 | POD LAN IP | 192.168.100.1 |
 | Camera Network | 192.168.100.0/24 |
 | DHCP Range | .100 - .200 |

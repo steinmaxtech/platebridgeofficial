@@ -18,7 +18,7 @@ Internet (Cellular)
     │  POD   │ ← Secure Router
     │ Router │ ← Firewall + NAT
     └───┬────┘
-        │ enp2s0 (LAN)
+        │ enp1s0 (LAN)
         │ 192.168.100.1/24
         │
     ┌───▼────────────────┐

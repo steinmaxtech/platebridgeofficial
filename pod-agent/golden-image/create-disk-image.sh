@@ -282,11 +282,13 @@ Edit \`/etc/netplan/01-netcfg.yaml\`:
 network:
   version: 2
   ethernets:
-    eth0:
+    enp3s0:  # WAN interface (adjust as needed)
       addresses: [192.168.1.100/24]
       gateway4: 192.168.1.1
       nameservers:
         addresses: [8.8.8.8, 8.8.4.4]
+    enp1s0:  # LAN interface (camera network)
+      addresses: [192.168.100.1/24]
 \`\`\`
 
 Apply: \`sudo netplan apply\`

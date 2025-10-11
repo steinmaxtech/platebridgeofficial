@@ -402,7 +402,7 @@ networks:
   ipvlan:
     driver: ipvlan
     driver_opts:
-      parent: eth0
+      parent: enp3s0
     ipam:
       config:
         - subnet: 192.168.1.0/24

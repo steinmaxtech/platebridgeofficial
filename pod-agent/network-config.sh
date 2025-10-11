@@ -3,7 +3,7 @@
 # PlateBridge POD - Dual NIC Network Configuration
 # Sets up two network interfaces:
 #   - enp3s0: WAN (Cellular/Internet connection)
-#   - enp2s0: LAN (Camera network, isolated)
+#   - enp1s0: LAN (Camera network, isolated)
 #
 # Usage: sudo ./network-config.sh
 #

@@ -2,8 +2,8 @@
 # Copy this to /opt/platebridge/config.yaml
 #
 # Network Setup:
-#   WAN (eth0): Internet connection
-#   LAN (eth1): Camera network (192.168.100.0/24)
+#   WAN (enp3s0): Internet connection
+#   LAN (enp1s0): Camera network (192.168.100.0/24)
 
 # ============================================================================
 # PORTAL CONNECTION
@@ -22,10 +22,10 @@ community_id: "community-uuid"  # Get from portal /communities page
 # NETWORK INTERFACES
 # ============================================================================
 # WAN interface (internet connection)
-wan_interface: "eth0"  # or enp0s3, check: ip addr show
+wan_interface: "enp3s0"  # or eth0, check: ip addr show
 
 # LAN interface (camera network)
-lan_interface: "eth1"  # or enp0s8, check: ip addr show
+lan_interface: "enp1s0"  # or eth1, check: ip addr show
 lan_network: "192.168.100.0/24"
 lan_gateway: "192.168.100.1"  # POD's IP on camera network
 

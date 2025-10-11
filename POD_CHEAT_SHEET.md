@@ -40,7 +40,7 @@ ip addr show
 cat /var/lib/misc/dnsmasq.leases
 
 # Scan for cameras
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 
 # Test RTSP stream
 ffplay -rtsp_transport tcp rtsp://192.168.100.100:554/stream
@@ -58,8 +58,8 @@ cd /opt/platebridge/docker && docker compose ps
 
 | Item | Value |
 |------|-------|
-| WAN Interface | eth0 (DHCP) |
-| LAN Interface | eth1 (Static) |
+| WAN Interface | enp3s0 (DHCP) |
+| LAN Interface | enp1s0 (Static) |
 | POD LAN IP | 192.168.100.1 |
 | Camera Network | 192.168.100.0/24 |
 | Camera DHCP | .100 - .200 |
@@ -96,7 +96,7 @@ sudo systemctl restart systemd-networkd
 ### Cameras Not Found
 ```bash
 sudo systemctl restart dnsmasq
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 ```
 
 ### RTSP Not Working
@@ -147,7 +147,7 @@ sudo systemctl restart dnsmasq
 
 ```
 1. POD online?           → ping 8.8.8.8
-2. Cameras connected?    → sudo arp-scan --interface=eth1 192.168.100.0/24
+2. Cameras connected?    → sudo arp-scan --interface=enp1s0 192.168.100.0/24
 3. DHCP working?         → cat /var/lib/misc/dnsmasq.leases
 4. Can reach camera?     → ping 192.168.100.100
 5. RTSP working?         → ffplay rtsp://192.168.100.100:554/stream
@@ -214,6 +214,6 @@ docker compose logs -f
 
 **🎯 Most Common Command:**
 ```bash
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 ```
 *Use this to find all cameras on your network!*

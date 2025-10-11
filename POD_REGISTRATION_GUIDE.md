@@ -139,7 +139,7 @@ SITE_ID="abc-123-def-456"  # Provided by installer
 
 # Get hardware info
 SERIAL=$(cat /sys/class/dmi/id/product_serial)
-MAC=$(cat /sys/class/net/eth0/address)
+MAC=$(cat /sys/class/net/enp3s0/address)
 
 # Register POD
 RESPONSE=$(curl -s -X POST "$PORTAL_URL/api/pods/register" \

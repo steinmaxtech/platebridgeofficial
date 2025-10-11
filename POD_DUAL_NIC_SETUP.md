@@ -12,7 +12,7 @@ Complete guide for setting up your POD with two network interfaces: one for inte
                     │  Internet   │
                     └──────┬──────┘
                            │
-                      WAN (eth0)
+                      WAN (enp3s0)
                            │
                     ┌──────┴──────┐
                     │  POD Device │
@@ -21,7 +21,7 @@ Complete guide for setting up your POD with two network interfaces: one for inte
                     │  24.04 LTS  │
                     └──────┬──────┘
                            │
-                      LAN (eth1)
+                      LAN (enp1s0)
                     192.168.100.1
                            │
          ┌─────────────────┼─────────────────┐
@@ -62,12 +62,12 @@ ip addr show
 
 # You should see something like:
 # 1: lo: ...
-# 2: eth0: ...  <- WAN (Internet)
-# 3: eth1: ...  <- LAN (Cameras)
+# 2: enp3s0: ...  <- WAN (Internet)
+# 3: enp1s0: ...  <- LAN (Cameras)
 ```
 
 **Common interface names:**
-- `eth0`, `eth1` (older naming)
+- `enp3s0`, `enp1s0` (older naming)
 - `enp0s3`, `enp0s8` (PCI bus naming)
 - `ens3`, `ens4` (systemd naming)
 
@@ -89,8 +89,8 @@ sudo ./network-config.sh
 
 **Script prompts:**
 ```
-WAN Interface: eth0 (Internet)
-LAN Interface: eth1 (Cameras)
+WAN Interface: enp3s0 (Internet)
+LAN Interface: enp1s0 (Cameras)
 Is this correct? yes
 
 Use DHCP for WAN? yes
@@ -114,7 +114,7 @@ Allow cameras to access internet via NAT? no
 **Physical connection:**
 ```
 1. Plug camera Ethernet cables into LAN switch
-2. Connect LAN switch to POD's LAN interface (eth1)
+2. Connect LAN switch to POD's LAN interface (enp1s0)
 3. Power on cameras
 ```
 
@@ -168,8 +168,8 @@ pod_api_key: "pbk_your_actual_key"
 site_id: "your-site-uuid"
 
 # Network interfaces (from Step 1)
-wan_interface: "eth0"
-lan_interface: "eth1"
+wan_interface: "enp3s0"
+lan_interface: "enp1s0"
 
 # Cameras (from Step 4)
 cameras:
@@ -192,9 +192,9 @@ network:
   version: 2
   renderer: networkd
   ethernets:
-    eth0:  # WAN
+    enp3s0:  # WAN
       dhcp4: true
-    eth1:  # LAN
+    enp1s0:  # LAN
       dhcp4: false
       addresses:
         - 192.168.100.1/24
@@ -202,7 +202,7 @@ network:
 
 **DHCP Server (`/etc/dnsmasq.d/platebridge-cameras.conf`):**
 ```
-interface=eth1
+interface=enp1s0
 bind-interfaces
 dhcp-range=192.168.100.100,192.168.100.200,24h
 dhcp-option=option:dns-server,192.168.100.1
@@ -283,7 +283,7 @@ ffprobe -rtsp_transport tcp rtsp://192.168.100.100:554/stream
 
 ```bash
 # Check WAN interface
-ip addr show eth0
+ip addr show enp3s0
 
 # Should show IP address
 # If not:
@@ -307,7 +307,7 @@ cat /var/lib/misc/dnsmasq.leases
 sudo systemctl restart dnsmasq
 
 # Check if camera is seen on network
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 ```
 
 ### Can't Access Camera Web Interface
@@ -348,7 +348,7 @@ sudo nano /etc/ufw/before.rules
 # Add at the end:
 *nat
 :POSTROUTING ACCEPT [0:0]
--A POSTROUTING -s 192.168.100.0/24 -o eth0 -j MASQUERADE
+-A POSTROUTING -s 192.168.100.0/24 -o enp3s0 -j MASQUERADE
 COMMIT
 
 # Reload firewall
@@ -376,14 +376,14 @@ ip route show
 sudo netstat -tulpn
 
 # Bandwidth usage
-sudo iftop -i eth1  # Camera network traffic
+sudo iftop -i enp1s0  # Camera network traffic
 ```
 
 ### View Connected Cameras
 
 ```bash
 # ARP scan (fast)
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 
 # NMAP scan (detailed)
 sudo nmap -sn 192.168.100.0/24
@@ -471,7 +471,7 @@ sudo netplan apply
 sudo systemctl restart dnsmasq
 
 # Scan for cameras
-sudo arp-scan --interface=eth1 192.168.100.0/24
+sudo arp-scan --interface=enp1s0 192.168.100.0/24
 
 # Test RTSP
 ffplay -rtsp_transport tcp rtsp://192.168.100.100:554/stream
@@ -491,7 +491,7 @@ sudo ufw status verbose
    → ping 8.8.8.8
 
 2. Are cameras connected?
-   → sudo arp-scan --interface=eth1 192.168.100.0/24
+   → sudo arp-scan --interface=enp1s0 192.168.100.0/24
 
 3. Did cameras get DHCP?
    → cat /var/lib/misc/dnsmasq.leases

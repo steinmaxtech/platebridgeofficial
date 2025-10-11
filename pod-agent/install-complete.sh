@@ -28,7 +28,7 @@ NC='\033[0m' # No Color
 INSTALL_DIR="/opt/platebridge"
 POD_USER="platebridge"
 WAN_INTERFACE="enp3s0"  # Cellular/Internet connection
-LAN_INTERFACE="enp2s0"  # Camera network
+LAN_INTERFACE="enp1s0"  # Camera network
 LAN_IP="192.168.100.1"
 LAN_NETWORK="192.168.100.0/24"
 DHCP_RANGE_START="192.168.100.100"
@@ -728,7 +728,7 @@ create_camera_discovery_script() {
 echo "Scanning for cameras on 192.168.100.0/24..."
 echo ""
 
-sudo arp-scan --interface=eth1 192.168.100.0/24 | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}"
+sudo arp-scan --interface=enp1s0 192.168.100.0/24 | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}"
 
 echo ""
 echo "DHCP leases:"
@@ -737,7 +737,7 @@ cat /var/lib/misc/dnsmasq.leases
 echo ""
 echo "Testing RTSP streams (common URLs)..."
 
-for ip in $(sudo arp-scan --interface=eth1 192.168.100.0/24 | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | grep "192.168.100"); do
+for ip in $(sudo arp-scan --interface=enp1s0 192.168.100.0/24 | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | grep "192.168.100"); do
     echo "Testing $ip..."
 
     # Common RTSP paths
