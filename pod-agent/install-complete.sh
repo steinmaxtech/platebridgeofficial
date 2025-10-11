@@ -24,6 +24,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Configuration
 INSTALL_DIR="/opt/platebridge"
 POD_USER="platebridge"
@@ -886,7 +889,8 @@ EOF
 
     # Copy all Docker build files to docker directory
     print_step "Copying Docker build files to docker directory..."
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    echo "Source directory: $SCRIPT_DIR"
+    echo "Target directory: $INSTALL_DIR/docker"
 
     # Copy Python agent
     if [ -f "$SCRIPT_DIR/complete_pod_agent.py" ]; then
