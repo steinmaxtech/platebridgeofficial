@@ -815,7 +815,8 @@ configure_interactive() {
     read -p "Registration Token (from portal): " REG_TOKEN
 
     # Get POD hardware info for registration
-    SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || echo "POD-$(hostname)-$(date +%s)")
+    # Use hostname as serial if hardware serial not available
+    SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || hostname)
     MAC=$(ip link show $LAN_INTERFACE | grep link/ether | awk '{print $2}')
     MODEL=$(cat /sys/class/dmi/id/product_name 2>/dev/null || echo "PB-M1")
 
