@@ -12,10 +12,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get('site_id');
+    const communityId = searchParams.get('community_id');
 
-    if (!siteId) {
-      return NextResponse.json({ error: 'site_id required' }, { status: 400 });
+    if (!communityId) {
+      return NextResponse.json({ error: 'community_id required' }, { status: 400 });
     }
 
     const { data: tokens, error } = await supabase
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         use_count,
         notes
       `)
-      .eq('site_id', siteId)
+      .eq('community_id', communityId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -58,10 +58,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { site_id, expires_in_hours = 24, max_uses = 1, notes } = body;
+    const { community_id, expires_in_hours = 24, max_uses = 1, notes } = body;
 
-    if (!site_id) {
-      return NextResponse.json({ error: 'site_id is required' }, { status: 400 });
+    if (!community_id) {
+      return NextResponse.json({ error: 'community_id is required' }, { status: 400 });
     }
 
     const token = `pbreg_${crypto.randomBytes(32).toString('hex')}`;
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const { data: newToken, error } = await supabase
       .from('pod_registration_tokens')
       .insert({
-        site_id,
+        community_id,
         token,
         expires_at: expiresAt.toISOString(),
         max_uses,

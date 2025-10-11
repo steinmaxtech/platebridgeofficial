@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Home, Plus, MapPin, Trash2 } from 'lucide-react';
+import { Home, Plus, MapPin, Trash2, Key, Copy, Check, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
@@ -45,6 +45,11 @@ export default function CommunitiesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [communityToDelete, setCommunityToDelete] = useState<Community | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [selectedCommunityForToken, setSelectedCommunityForToken] = useState<Community | null>(null);
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     company_id: '',
     name: '',
@@ -206,6 +211,48 @@ export default function CommunitiesPage() {
     setCommunityToDelete(null);
     setDeleteConfirmation('');
     fetchCommunities();
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const generateRegistrationToken = async (community: Community, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedCommunityForToken(community);
+    setGeneratedToken(null);
+    setTokenDialogOpen(true);
+    setGeneratingToken(true);
+
+    try {
+      const response = await fetch('/api/pods/registration-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          community_id: community.id,
+          expires_in_hours: 24,
+          max_uses: 1,
+          notes: `Token for ${community.name}`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate token');
+      }
+
+      const data = await response.json();
+      setGeneratedToken(data.token.token);
+      toast.success('Registration token generated!');
+    } catch (error) {
+      console.error('Error generating token:', error);
+      toast.error('Failed to generate token');
+      setTokenDialogOpen(false);
+    } finally {
+      setGeneratingToken(false);
+    }
   };
 
   if (authLoading || loading || !user || !profile) {
@@ -403,9 +450,20 @@ export default function CommunitiesPage() {
                     <span className="line-clamp-2">{community.address}</span>
                   </div>
                 )}
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground mb-4">
                   {community.timezone}
                 </div>
+
+                {canManage && (
+                  <Button
+                    onClick={(e) => generateRegistrationToken(community, e)}
+                    className="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white mt-4"
+                    size="sm"
+                  >
+                    <Key className="w-4 h-4 mr-2" />
+                    Generate POD Token
+                  </Button>
+                )}
               </Card>
             ))}
           </div>
@@ -447,6 +505,89 @@ export default function CommunitiesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>POD Registration Token</DialogTitle>
+            </DialogHeader>
+            {generatingToken ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+                <span className="ml-3">Generating token...</span>
+              </div>
+            ) : generatedToken ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Key className="w-5 h-5 text-green-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-green-900 dark:text-green-100 mb-1">
+                        Registration Token Generated
+                      </h4>
+                      <p className="text-sm text-green-700 dark:text-green-300">
+                        Use this token during POD installation. It expires in 24 hours and can be used once.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Token (copy this)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={generatedToken}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      onClick={() => copyToClipboard(generatedToken, 'token')}
+                      variant="outline"
+                    >
+                      {copiedId === 'token' ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 space-y-2">
+                  <h4 className="font-semibold text-sm">Installation Instructions:</h4>
+                  <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
+                    <li>SSH into your POD device</li>
+                    <li>Run: <code className="bg-white dark:bg-gray-800 px-2 py-0.5 rounded">sudo ./install-complete.sh</code></li>
+                    <li>Enter portal URL when prompted</li>
+                    <li>Paste this registration token when prompted</li>
+                    <li>POD will automatically register to this community</li>
+                  </ol>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setTokenDialogOpen(false)}
+                    className="flex-1"
+                    variant="outline"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedCommunityForToken) {
+                        generateRegistrationToken(selectedCommunityForToken, {} as React.MouseEvent);
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Generate New Token
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

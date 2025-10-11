@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     const { data: tokenData, error: tokenError } = await supabase
       .from('pod_registration_tokens')
-      .select('id, site_id, expires_at, used_at, use_count, max_uses')
+      .select('id, community_id, expires_at, used_at, use_count, max_uses')
       .eq('token', registration_token)
       .maybeSingle();
 
@@ -50,7 +50,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const site_id = tokenData.site_id;
+    const community_id = tokenData.community_id;
+
+    const { data: defaultSite } = await supabase
+      .from('sites')
+      .select('id')
+      .eq('community_id', community_id)
+      .limit(1)
+      .maybeSingle();
+
+    const site_id = defaultSite?.id || null;
 
     // Check if POD already exists
     const { data: existingPod } = await supabase
