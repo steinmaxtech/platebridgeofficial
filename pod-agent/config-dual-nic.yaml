@@ -1,0 +1,202 @@
+# PlateBridge Pod Configuration - Dual NIC Setup
+# Copy this to /opt/platebridge/config.yaml
+#
+# Network Setup:
+#   WAN (eth0): Internet connection
+#   LAN (eth1): Camera network (192.168.100.0/24)
+
+# ============================================================================
+# PORTAL CONNECTION
+# ============================================================================
+portal_url: "https://your-portal.vercel.app"
+pod_api_key: "pbk_your_api_key_here"  # Get from portal after registering POD
+
+# ============================================================================
+# POD IDENTIFICATION
+# ============================================================================
+pod_id: "main-gate-pod"  # Auto-registers if doesn't exist
+site_id: "site-uuid"     # Get from portal /sites page
+community_id: "community-uuid"  # Get from portal /communities page
+
+# ============================================================================
+# NETWORK INTERFACES
+# ============================================================================
+# WAN interface (internet connection)
+wan_interface: "eth0"  # or enp0s3, check: ip addr show
+
+# LAN interface (camera network)
+lan_interface: "eth1"  # or enp0s8, check: ip addr show
+lan_network: "192.168.100.0/24"
+lan_gateway: "192.168.100.1"  # POD's IP on camera network
+
+# ============================================================================
+# CAMERA CONFIGURATION
+# ============================================================================
+# Cameras are on the LAN interface network
+# After running discover-cameras.sh, add your cameras here
+
+cameras:
+  - id: "gate-camera-1"
+    name: "Main Gate Camera"
+    rtsp_url: "rtsp://192.168.100.100:554/stream"
+    position: "main entrance"
+    enabled: true
+    detection:
+      enabled: true
+      min_confidence: 0.75
+      zones:
+        - name: "entry_lane"
+          coordinates: [[0, 0], [1920, 0], [1920, 1080], [0, 1080]]
+
+  # - id: "gate-camera-2"
+  #   name: "Exit Gate Camera"
+  #   rtsp_url: "rtsp://192.168.100.101:554/stream"
+  #   position: "exit gate"
+  #   enabled: true
+
+# ============================================================================
+# DETECTION SETTINGS
+# ============================================================================
+detection:
+  min_confidence: 0.75  # Global minimum (0.0 - 1.0)
+  save_images: true
+  save_videos: true
+  video_duration: 30  # Seconds before/after detection
+
+# PlateRecognizer API (cloud service)
+platerecognizer:
+  api_token: "your_api_token_here"  # Get from platerecognizer.com
+  regions: ["us", "eu"]  # License plate regions to check
+  # For local SDK:
+  # use_sdk: true
+  # sdk_url: "http://localhost:8080"
+
+# ============================================================================
+# FRIGATE INTEGRATION
+# ============================================================================
+frigate:
+  enabled: true
+  url: "http://localhost:5000"
+  mqtt:
+    enabled: true
+    host: "localhost"
+    port: 1883
+    topic: "frigate/events"
+    # username: "frigate"
+    # password: "password"
+
+# ============================================================================
+# STREAMING CONFIGURATION
+# ============================================================================
+streaming:
+  enabled: true
+  port: 8000
+  secret: "change-this-secret-key"  # Must match POD_STREAM_SECRET in portal
+  public_ip: "auto"  # Auto-detect or set manually
+  # public_ip: "203.0.113.1"  # Your public IP if behind NAT
+  transcode: false  # Set true to reduce bandwidth (uses more CPU)
+
+# ============================================================================
+# RECORDING CONFIGURATION
+# ============================================================================
+recording:
+  enabled: true
+  base_dir: "/opt/platebridge/recordings"
+  retention_days: 30  # Auto-delete recordings older than this
+  on_detection: true  # Auto-record when plate detected
+  duration: 30  # Seconds per clip
+  pre_buffer: 5  # Seconds before detection
+  post_buffer: 10  # Seconds after detection
+
+# ============================================================================
+# ACCESS CONTROL (Auto Gate Opening)
+# ============================================================================
+access_control:
+  enabled: true
+  cache_refresh: 300  # Seconds (5 minutes)
+  offline_mode: true  # Use cached list if portal unreachable
+
+  # Gate control method
+  gate:
+    type: "gpio"  # Options: gpio, http, serial, gatewise
+
+    # GPIO relay (Raspberry Pi)
+    gpio:
+      enabled: true
+      pin: 17  # BCM pin number
+      active_high: true  # true = HIGH to trigger, false = LOW to trigger
+      trigger_duration: 2  # Seconds to hold relay closed
+
+    # # HTTP API (e.g., custom gate controller)
+    # http:
+    #   enabled: false
+    #   url: "http://gate-controller.local/api/open"
+    #   method: "POST"
+    #   headers:
+    #     Authorization: "Bearer token"
+
+    # # Serial/RS-485
+    # serial:
+    #   enabled: false
+    #   port: "/dev/ttyUSB0"
+    #   baudrate: 9600
+    #   command: "OPEN\n"
+
+    # # Gatewise API
+    # gatewise:
+    #   enabled: false
+    #   url: "https://api.gatewise.com"
+    #   api_key: "your_gatewise_key"
+    #   access_point_id: "ap_123"
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "/opt/platebridge/logs/pod-agent.log"
+  max_size: 10  # MB
+  backup_count: 5
+
+# ============================================================================
+# SYSTEM MONITORING
+# ============================================================================
+monitoring:
+  heartbeat_interval: 60  # Seconds
+  metrics_interval: 300  # Seconds (5 minutes)
+
+  alerts:
+    enabled: true
+    cpu_threshold: 90  # Percent
+    memory_threshold: 90  # Percent
+    disk_threshold: 90  # Percent
+    temp_threshold: 80  # Celsius
+
+# ============================================================================
+# ADVANCED SETTINGS
+# ============================================================================
+advanced:
+  # Number of detection workers
+  detection_workers: 2
+
+  # Image preprocessing
+  preprocessing:
+    enabled: true
+    denoise: true
+    enhance_contrast: true
+    sharpen: false
+
+  # Performance tuning
+  performance:
+    gpu_acceleration: false  # Enable if NVIDIA GPU available
+    max_queue_size: 100
+    batch_processing: false
+
+# ============================================================================
+# DEVELOPMENT/DEBUG
+# ============================================================================
+debug:
+  save_raw_images: false  # Save every frame for debugging
+  save_failed_detections: true  # Save images where detection failed
+  mock_detections: false  # Generate fake detections for testing
+  disable_uploads: false  # Don't upload to portal (local only)
