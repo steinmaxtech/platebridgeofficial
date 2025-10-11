@@ -610,6 +610,47 @@ snapshots:
     default: 14
 EOF
 
+    print_step "Creating POD Agent Dockerfile..."
+    cat > $INSTALL_DIR/docker/Dockerfile << 'DOCKERFILE'
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY complete_pod_agent.py agent.py
+COPY config.yaml .
+
+# Create directories
+RUN mkdir -p /config /logs /recordings /tmp/hls_output
+
+# Expose ports
+EXPOSE 8000 1883
+
+# Run the agent
+CMD ["python3", "agent.py"]
+DOCKERFILE
+
+    print_step "Creating agent requirements.txt..."
+    cat > $INSTALL_DIR/docker/requirements.txt << EOF
+pyyaml>=6.0
+requests>=2.31.0
+paho-mqtt>=1.6.1
+flask>=2.3.0
+EOF
+
     print_step "Creating Frigate docker-compose.yml..."
     cat > $INSTALL_DIR/docker/docker-compose.yml << EOF
 version: '3.8'
@@ -650,7 +691,10 @@ services:
       - $INSTALL_DIR/frigate/mosquitto/log:/mosquitto/log
 
   platebridge-agent:
-    image: ghcr.io/platebridge/pod-agent:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: platebridge-pod-agent:latest
     container_name: platebridge-agent
     restart: unless-stopped
     volumes:
@@ -828,17 +872,48 @@ EOF
     chown $POD_USER:$POD_USER $INSTALL_DIR/docker/.env
     chmod 600 $INSTALL_DIR/docker/.env
 
+    # Create config.yaml for the agent
+    cat > $INSTALL_DIR/docker/config.yaml << EOF
+portal_url: "$PORTAL_URL"
+api_key: "$POD_API_KEY"
+pod_id: "$POD_ID"
+camera_ip: "192.168.100.100"
+stream_port: 8000
+recordings_dir: "/recordings"
+EOF
+
+    # Copy agent Python file to docker directory
+    print_step "Copying agent files to docker directory..."
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if [ -f "$SCRIPT_DIR/complete_pod_agent.py" ]; then
+        cp "$SCRIPT_DIR/complete_pod_agent.py" $INSTALL_DIR/docker/
+        print_success "Agent files copied"
+    else
+        print_warning "complete_pod_agent.py not found in $SCRIPT_DIR"
+        print_warning "Docker build will fail without this file"
+    fi
+
+    chown -R $POD_USER:$POD_USER $INSTALL_DIR/docker
+
     print_success "Configuration saved"
 }
 
 start_services() {
     print_header "Starting Services"
 
-    print_step "Starting Docker services..."
+    print_step "Building Docker image locally..."
     cd $INSTALL_DIR/docker
 
+    if [ -f "Dockerfile" ]; then
+        docker build -t platebridge-pod-agent:latest .
+        print_success "Docker image built"
+    else
+        print_error "Dockerfile not found"
+        return 1
+    fi
+
     if [ -f ".env" ]; then
-        docker compose pull
+        print_step "Starting Docker services..."
         docker compose up -d
         print_success "Docker services started"
     else

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  pod-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: platebridge-pod-agent:latest
+    container_name: platebridge-pod
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/platebridge/config.yaml:/app/config.yaml:ro
+      - /opt/platebridge/recordings:/recordings
+      - /opt/platebridge/logs:/logs
+      - /tmp/hls_output:/tmp/hls_output
+    environment:
+      - TZ=UTC
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
