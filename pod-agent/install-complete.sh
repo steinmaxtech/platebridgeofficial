@@ -338,9 +338,10 @@ configure_firewall() {
 net.ipv4.ip_forward=1
 
 # Security hardening for router/gateway
-# Prevent IP spoofing
-net.ipv4.conf.all.rp_filter=1
-net.ipv4.conf.default.rp_filter=1
+# CRITICAL: Disable reverse path filtering on camera interface for DHCP
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+net.ipv4.conf.$LAN_INTERFACE.rp_filter=0
 
 # Ignore ICMP redirects
 net.ipv4.conf.all.accept_redirects=0
