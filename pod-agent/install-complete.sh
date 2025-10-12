@@ -156,9 +156,26 @@ install_docker() {
     fi
     usermod -aG docker "$SUDO_USER"
 
+    print_step "Configuring Docker DNS..."
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json << EOF
+{
+  "dns": ["8.8.8.8", "8.8.4.4"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+    print_success "Docker DNS configured"
+
     print_step "Enabling Docker service..."
     systemctl enable docker
-    systemctl start docker
+    systemctl restart docker
+
+    # Wait for Docker to be ready
+    sleep 3
 
     print_success "Docker installed: $(docker --version)"
 }
