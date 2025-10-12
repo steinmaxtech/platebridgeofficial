@@ -955,6 +955,26 @@ EOF
 start_services() {
     print_header "Starting Services"
 
+    print_step "Checking internet connectivity..."
+    if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+        print_success "Internet connectivity OK"
+    else
+        print_error "No internet connectivity detected"
+        print_warning "Docker build requires internet access to download packages"
+        print_warning "Please check your network configuration"
+        return 1
+    fi
+
+    print_step "Checking DNS resolution..."
+    if ping -c 1 google.com >/dev/null 2>&1; then
+        print_success "DNS resolution OK"
+    else
+        print_error "DNS resolution failed"
+        print_warning "Docker build requires DNS to work"
+        print_warning "Try: sudo systemctl restart systemd-resolved"
+        return 1
+    fi
+
     print_step "Checking Docker build directory contents..."
     echo "Contents of $INSTALL_DIR/docker/:"
     ls -la $INSTALL_DIR/docker/
@@ -966,6 +986,14 @@ start_services() {
     if [ -f "Dockerfile" ]; then
         echo "Building with context: $(pwd)"
         docker build -t platebridge-pod-agent:latest .
+        if [ $? -ne 0 ]; then
+            print_error "Docker build failed"
+            print_warning "Common issues:"
+            print_warning "  1. No internet connectivity"
+            print_warning "  2. DNS not working (try: sudo systemctl restart systemd-resolved)"
+            print_warning "  3. Docker daemon not running"
+            return 1
+        fi
         print_success "Docker image built"
     else
         print_error "Dockerfile not found in $(pwd)"
