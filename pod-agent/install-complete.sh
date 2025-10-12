@@ -128,7 +128,8 @@ install_dependencies() {
     apt-get install -y \
         iptables \
         iptables-persistent \
-        dnsmasq
+        dnsmasq \
+        ethtool
 
     # Stage 3: Security packages
     apt-get install -y \
@@ -232,7 +233,44 @@ EOF
     print_step "Applying netplan configuration..."
     netplan apply
 
-    print_success "Network configured"
+    # Wait for interfaces to come up
+    sleep 3
+
+    # Install ethtool if not present
+    if ! command -v ethtool &> /dev/null; then
+        apt-get install -y ethtool
+    fi
+
+    # Disable hardware offloading on LAN interface (critical for DHCP)
+    print_step "Disabling hardware offload on $LAN_INTERFACE (required for DHCP)..."
+    ethtool -K $LAN_INTERFACE rx off tx off gso off tso off gro off 2>/dev/null || true
+
+    # Make offload settings persistent across reboots
+    cat > /etc/systemd/system/disable-offload.service << EOF
+[Unit]
+Description=Disable hardware offload on camera interface
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ethtool -K $LAN_INTERFACE rx off tx off gso off tso off gro off
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable disable-offload.service
+
+    # Verify interface is up and has correct IP
+    print_step "Verifying network configuration..."
+    ip addr show $LAN_INTERFACE | grep -q "$LAN_IP" || {
+        print_error "Failed to configure $LAN_INTERFACE with IP $LAN_IP"
+        return 1
+    }
+
+    print_success "Network configured with hardware offload disabled"
 }
 
 configure_dhcp() {
@@ -327,6 +365,19 @@ EOF
         journalctl -u dnsmasq -n 20 --no-pager
         return 1
     fi
+
+    # Verify dnsmasq is listening on the correct interface
+    print_step "Verifying dnsmasq is listening on ports 53 and 67..."
+    if ss -ulnp | grep -q ":53.*dnsmasq" && ss -ulnp | grep -q ":67.*dnsmasq"; then
+        print_success "dnsmasq is listening on DNS (53) and DHCP (67)"
+    else
+        print_warning "dnsmasq may not be listening correctly"
+        echo "Current listening ports:"
+        ss -ulnp | grep dnsmasq || echo "No dnsmasq ports found"
+    fi
+
+    print_step "Testing DHCP with tcpdump..."
+    print_warning "After connecting a camera, monitor with: sudo tcpdump -i $LAN_INTERFACE -n port 67 or port 68"
 }
 
 configure_firewall() {
