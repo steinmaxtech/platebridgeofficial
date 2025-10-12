@@ -131,11 +131,16 @@ install_dependencies() {
         dnsmasq \
         ethtool
 
-    # Stage 3: Security packages
+    # Stage 3: Security packages (including SSH server)
     apt-get install -y \
+        openssh-server \
         fail2ban \
         unattended-upgrades \
         apt-listchanges
+
+    # Ensure SSH service is running
+    systemctl enable ssh 2>/dev/null || systemctl enable sshd 2>/dev/null
+    systemctl start ssh 2>/dev/null || systemctl start sshd 2>/dev/null
 
     print_success "System dependencies installed (using iptables without ufw)"
 }
@@ -567,6 +572,16 @@ EOF
 
     # Harden SSH configuration
     print_step "Hardening SSH configuration..."
+
+    # Ensure SSH server is installed and running
+    if ! command -v sshd &> /dev/null; then
+        print_warning "OpenSSH server not found, installing..."
+        apt-get install -y openssh-server
+        systemctl enable ssh 2>/dev/null || systemctl enable sshd 2>/dev/null
+        systemctl start ssh 2>/dev/null || systemctl start sshd 2>/dev/null
+    fi
+
+    # Backup existing config
     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
 
     # Apply SSH hardening
@@ -588,13 +603,16 @@ EOF
         # Try ssh.service first (Ubuntu 24.04), fall back to sshd
         if systemctl list-unit-files | grep -q "^ssh.service"; then
             systemctl restart ssh
+            print_success "SSH service restarted (ssh.service)"
         elif systemctl list-unit-files | grep -q "^sshd.service"; then
             systemctl restart sshd
+            print_success "SSH service restarted (sshd.service)"
         else
-            print_warning "Could not find SSH service to restart"
+            print_error "Could not find SSH service (neither ssh.service nor sshd.service)"
+            return 1
         fi
     else
-        print_error "SSH configuration test failed"
+        print_error "SSH configuration test failed - config has syntax errors"
         return 1
     fi
 
