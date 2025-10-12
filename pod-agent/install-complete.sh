@@ -584,7 +584,19 @@ EOF
     grep -q "^X11Forwarding" /etc/ssh/sshd_config || echo "X11Forwarding no" >> /etc/ssh/sshd_config
 
     # Test SSH config before restarting
-    sshd -t && systemctl restart sshd
+    if sshd -t 2>/dev/null; then
+        # Try ssh.service first (Ubuntu 24.04), fall back to sshd
+        if systemctl list-unit-files | grep -q "^ssh.service"; then
+            systemctl restart ssh
+        elif systemctl list-unit-files | grep -q "^sshd.service"; then
+            systemctl restart sshd
+        else
+            print_warning "Could not find SSH service to restart"
+        fi
+    else
+        print_error "SSH configuration test failed"
+        return 1
+    fi
 
     print_warning "SSH has been hardened. Make sure you have SSH key access configured!"
     print_warning "Root login is now disabled."
