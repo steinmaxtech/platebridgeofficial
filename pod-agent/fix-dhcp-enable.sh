@@ -18,18 +18,29 @@ echo -e "${BLUE} Fix dnsmasq DHCP Server${NC}"
 echo -e "${BLUE}═══════════════════════════════════════${NC}"
 echo ""
 
-# Get interface
-if [ -n "$1" ]; then
+# Get interface - MUST be provided as argument
+if [ -n "$1" ] && [ "$1" != "lo" ]; then
     IFACE="$1"
 else
-    echo "Available interfaces:"
-    ip -4 addr show | grep -E "^[0-9]+: " | awk -F': ' '{print "  " $2}'
+    echo -e "${YELLOW}Available network interfaces:${NC}"
+    ip -4 addr show | grep -E "^[0-9]+: " | awk -F': ' '{print "  " $2}' | grep -v lo
     echo ""
-    read -p "Enter camera LAN interface (e.g., eth1): " IFACE
+    echo -e "${RED}ERROR: You must specify a network interface (not lo)${NC}"
+    echo ""
+    echo "Usage: $0 <interface>"
+    echo "Example: $0 eth1"
+    echo "Example: $0 enp3s0"
+    exit 1
 fi
 
-if [ -z "$IFACE" ]; then
-    echo -e "${RED}No interface specified${NC}"
+# Validate interface exists and is not lo
+if ! ip link show "$IFACE" &>/dev/null; then
+    echo -e "${RED}ERROR: Interface '$IFACE' does not exist${NC}"
+    exit 1
+fi
+
+if [ "$IFACE" = "lo" ]; then
+    echo -e "${RED}ERROR: Cannot use loopback interface 'lo'${NC}"
     exit 1
 fi
 
@@ -41,7 +52,15 @@ echo -e "${GREEN}►${NC} Configuring interface..."
 ip link set $IFACE up
 ip addr flush dev $IFACE
 ip addr add 192.168.100.1/24 dev $IFACE
-echo -e "${GREEN}✓${NC} Interface configured"
+
+# Verify
+if ! ip addr show $IFACE | grep -q "192.168.100.1"; then
+    echo -e "${RED}✗${NC} Failed to set IP on $IFACE"
+    exit 1
+fi
+
+echo -e "${GREEN}✓${NC} Interface configured: 192.168.100.1/24"
+ip addr show $IFACE | grep "inet "
 echo ""
 
 # Stop dnsmasq
@@ -50,8 +69,9 @@ systemctl stop dnsmasq
 sleep 2
 
 # Backup main config
-if [ -f /etc/dnsmasq.conf ]; then
+if [ -f /etc/dnsmasq.conf ] && [ ! -f /etc/dnsmasq.conf.backup ]; then
     cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup
+    echo -e "${GREEN}✓${NC} Backed up original config"
 fi
 
 # Create minimal main config
@@ -60,6 +80,12 @@ cat > /etc/dnsmasq.conf <<EOF
 # Main dnsmasq configuration
 # Include all files in /etc/dnsmasq.d/
 conf-dir=/etc/dnsmasq.d/,*.conf
+
+# Don't use /etc/hosts
+no-hosts
+
+# Don't poll /etc/resolv.conf
+no-poll
 EOF
 
 # Create DHCP config
@@ -68,17 +94,17 @@ mkdir -p /etc/dnsmasq.d
 cat > /etc/dnsmasq.d/platebridge-cameras.conf <<EOF
 # PlateBridge Camera Network DHCP Server
 
-# Bind only to camera interface
+# ONLY bind to camera interface - NOT lo
 interface=$IFACE
 bind-interfaces
 
-# Don't read /etc/hosts
-no-hosts
+# Explicitly exclude loopback
+except-interface=lo
 
-# Don't read /etc/resolv.conf
+# Don't read /etc/resolv.conf for DNS
 no-resolv
 
-# Upstream DNS servers (for DNS queries from this server)
+# Upstream DNS servers
 server=8.8.8.8
 server=8.8.4.4
 
@@ -86,12 +112,13 @@ server=8.8.4.4
 dhcp-range=$IFACE,192.168.100.100,192.168.100.200,24h
 
 # DHCP Options
-dhcp-option=$IFACE,option:router,192.168.100.1
-dhcp-option=$IFACE,option:dns-server,192.168.100.1
-dhcp-option=$IFACE,option:netmask,255.255.255.0
+dhcp-option=$IFACE,3,192.168.100.1
+dhcp-option=$IFACE,6,192.168.100.1
+dhcp-option=$IFACE,1,255.255.255.0
 
 # Domain
 domain=cameras.local
+local=/cameras.local/
 
 # Be authoritative
 dhcp-authoritative
@@ -105,21 +132,24 @@ dhcp-leasefile=/var/lib/misc/dnsmasq.leases
 EOF
 
 echo -e "${GREEN}✓${NC} Configuration created"
+cat /etc/dnsmasq.d/platebridge-cameras.conf
 echo ""
 
 # Test config
 echo -e "${GREEN}►${NC} Testing configuration..."
-if dnsmasq --test 2>&1 | grep -q "OK"; then
+TEST_OUTPUT=$(dnsmasq --test 2>&1)
+if echo "$TEST_OUTPUT" | grep -q "syntax check OK"; then
     echo -e "${GREEN}✓${NC} Configuration is valid"
 else
     echo -e "${RED}✗${NC} Configuration error:"
-    dnsmasq --test 2>&1
+    echo "$TEST_OUTPUT"
     exit 1
 fi
 echo ""
 
 # Start dnsmasq
 echo -e "${GREEN}►${NC} Starting dnsmasq..."
+systemctl enable dnsmasq
 systemctl start dnsmasq
 sleep 3
 
@@ -127,7 +157,11 @@ sleep 3
 if ! systemctl is-active --quiet dnsmasq; then
     echo -e "${RED}✗${NC} dnsmasq failed to start!"
     echo ""
-    journalctl -u dnsmasq --no-pager -n 20
+    echo "Status:"
+    systemctl status dnsmasq --no-pager -l
+    echo ""
+    echo "Logs:"
+    journalctl -u dnsmasq --no-pager -n 30
     exit 1
 fi
 
@@ -138,11 +172,11 @@ echo ""
 echo -e "${GREEN}►${NC} Checking DHCP server..."
 sleep 2
 
-if ss -ulnp | grep -q "dnsmasq.*:67"; then
-    echo -e "${GREEN}✓${NC} DHCP server listening on port 67!"
-    echo ""
-    ss -ulnp | grep dnsmasq
-    echo ""
+echo "All UDP ports dnsmasq is listening on:"
+ss -ulnp | grep dnsmasq
+echo ""
+
+if ss -ulnp | grep -q "dnsmasq.*:67 "; then
     echo -e "${BLUE}═══════════════════════════════════════${NC}"
     echo -e "${GREEN}✓ SUCCESS! DHCP Server is Running${NC}"
     echo -e "${BLUE}═══════════════════════════════════════${NC}"
@@ -152,18 +186,24 @@ if ss -ulnp | grep -q "dnsmasq.*:67"; then
     echo "  POD IP:       192.168.100.1/24"
     echo "  DHCP Range:   192.168.100.100 - 192.168.100.200"
     echo ""
-    echo "Test it:"
-    echo "  1. Connect device to $IFACE network"
-    echo "  2. Monitor: sudo journalctl -u dnsmasq -f"
-    echo "  3. Check leases: cat /var/lib/misc/dnsmasq.leases"
+    echo "Monitor DHCP requests:"
+    echo "  sudo journalctl -u dnsmasq -f"
+    echo ""
+    echo "Check leases:"
+    echo "  cat /var/lib/misc/dnsmasq.leases"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Connect camera to $IFACE network"
+    echo "  2. Camera should get IP 192.168.100.100-200"
+    echo "  3. Find camera: sudo nmap -sn 192.168.100.0/24"
     echo ""
 else
     echo -e "${RED}✗${NC} Still not listening on port 67!"
     echo ""
-    echo "Port status:"
-    ss -ulnp | grep dnsmasq || echo "dnsmasq not in port list"
-    echo ""
     echo "Logs:"
-    journalctl -u dnsmasq --no-pager -n 20
+    journalctl -u dnsmasq --no-pager -n 30
+    echo ""
+    echo "Try running manually to see errors:"
+    echo "  sudo dnsmasq --no-daemon --log-dhcp --interface=$IFACE"
     exit 1
 fi
