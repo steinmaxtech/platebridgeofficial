@@ -186,32 +186,119 @@ sudo ./discover-cameras.sh
 
 ## 🚀 Recommended Installation Path
 
-### **For Production POD (Most Common):**
+### **For Production POD (Most Common) - Fresh Install:**
 
+**Step 1: Install Ubuntu 24.04 LTS**
 ```bash
-# 1. Clone repository
+# 1. Download Ubuntu 24.04 LTS Server
+# https://ubuntu.com/download/server
+
+# 2. Create bootable USB with Rufus (Windows) or Etcher (Mac/Linux)
+# https://rufus.ie/ or https://etcher.io/
+
+# 3. Boot from USB and install Ubuntu
+#    - Choose "Ubuntu Server" (minimal installation)
+#    - Set hostname: platebridge-pod
+#    - Create admin user (you'll need this for SSH)
+#    - Enable OpenSSH server when prompted
+#    - No additional packages needed (script installs everything)
+
+# 4. After installation, reboot and login
+```
+
+**Step 2: Clone Repository & Install**
+```bash
+# 1. Update system
+sudo apt update && sudo apt upgrade -y
+
+# 2. Install git
+sudo apt install -y git
+
+# 3. Clone repository
+cd /tmp
 git clone https://github.com/your-org/platebridge.git
 cd platebridge/pod-agent
 
-# 2. Run complete installer (installs everything!)
+# 4. Make script executable
+chmod +x install-complete.sh
+
+# 5. Run complete installer (installs everything!)
 sudo ./install-complete.sh
+# This will:
+#   - Install Docker, Frigate, dnsmasq, iptables
+#   - Configure dual-NIC network
+#   - Set up DHCP server for cameras
+#   - Configure firewall and security
+#   - Install Python agent
+#   - Set up auto-start services
+```
 
-# 3. Connect cameras physically to LAN interface (enp1s0)
+**Step 3: Configure Portal Connection**
+```bash
+# During installation, you'll be prompted to:
+# 1. Select WAN interface (cellular/internet) - usually enp3s0
+# 2. Select LAN interface (cameras) - usually enp1s0
+# 3. Enter portal URL: https://your-portal.vercel.app
+# 4. Enter registration token from portal (generate in Properties > POD Tokens)
+#
+# Script will automatically register POD and configure .env file
+```
 
-# 4. Discover cameras
-sudo ./discover-cameras.sh
+**Step 4: Connect Cameras & Discover**
+```bash
+# 1. Connect cameras physically to LAN interface (enp1s0)
+#    Cameras will automatically get IPs via DHCP (192.168.100.100-200)
 
-# 5. Configure Frigate with discovered camera URLs
+# 2. Wait 30 seconds for cameras to boot
+
+# 3. Discover cameras
+sudo /opt/platebridge/discover-cameras.sh
+# This will show:
+#   - Camera IP addresses
+#   - DHCP leases
+#   - Working RTSP URLs
+```
+
+**Step 5: Configure Frigate**
+```bash
+# 1. Edit Frigate config with discovered camera URLs
 sudo nano /opt/platebridge/frigate/config/config.yml
 
-# 6. Restart services
+# 2. Add cameras (example):
+# cameras:
+#   front_gate:
+#     ffmpeg:
+#       inputs:
+#         - path: rtsp://192.168.100.100:554/stream
+#           roles:
+#             - detect
+#             - record
+
+# 3. Save and exit (Ctrl+X, Y, Enter)
+
+# 4. Restart services
 cd /opt/platebridge/docker
-docker compose restart
+sudo docker compose restart
+```
+
+**Step 6: Verify Everything Works**
+```bash
+# 1. Check all services are running
+cd /opt/platebridge/docker
+sudo docker compose ps
+# Should show: frigate, mqtt, platebridge-agent (all "Up")
+
+# 2. Access Frigate web UI
+# Open browser: http://<pod-ip>:5000
+# (Use the IP from WAN interface - enp3s0)
+
+# 3. Check POD is online in portal
+# Portal > PODs > Your POD should show "Online" status
 
 # Done! ✅
 ```
 
-**Total time: ~20 minutes**
+**Total time: ~25 minutes** (including Ubuntu install)
 
 ---
 
