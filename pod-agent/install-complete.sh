@@ -992,6 +992,36 @@ start_services() {
         return 1
     fi
 
+    print_step "Testing DNS inside Docker..."
+    if docker run --rm alpine ping -c 1 google.com >/dev/null 2>&1; then
+        print_success "Docker DNS working"
+    else
+        print_error "Docker cannot resolve DNS"
+        print_warning "Checking Docker DNS configuration..."
+        if [ -f /etc/docker/daemon.json ]; then
+            echo "Current daemon.json:"
+            cat /etc/docker/daemon.json
+        else
+            print_warning "/etc/docker/daemon.json not found"
+        fi
+        print_warning "Attempting to fix Docker DNS..."
+        mkdir -p /etc/docker
+        cat > /etc/docker/daemon.json << 'DOCKEREOF'
+{
+  "dns": ["8.8.8.8", "8.8.4.4"]
+}
+DOCKEREOF
+        systemctl restart docker
+        sleep 5
+        print_warning "Retrying DNS test..."
+        if docker run --rm alpine ping -c 1 google.com >/dev/null 2>&1; then
+            print_success "Docker DNS fixed!"
+        else
+            print_error "Docker DNS still not working. Manual intervention required."
+            return 1
+        fi
+    fi
+
     print_step "Checking Docker build directory contents..."
     echo "Contents of $INSTALL_DIR/docker/:"
     ls -la $INSTALL_DIR/docker/
@@ -1002,7 +1032,8 @@ start_services() {
 
     if [ -f "Dockerfile" ]; then
         echo "Building with context: $(pwd)"
-        docker build -t platebridge-pod-agent:latest .
+        # Build with explicit network=host to use host DNS
+        docker build --network=host -t platebridge-pod-agent:latest .
         if [ $? -ne 0 ]; then
             print_error "Docker build failed"
             print_warning "Common issues:"

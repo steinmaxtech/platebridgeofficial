@@ -2,6 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Configure apt to use alternative mirrors if needed and increase timeouts
+RUN echo 'Acquire::http::Timeout "30";' > /etc/apt/apt.conf.d/99timeout \
+    && echo 'Acquire::https::Timeout "30";' >> /etc/apt/apt.conf.d/99timeout \
+    && echo 'Acquire::Retries "3";' >> /etc/apt/apt.conf.d/99timeout
+
 # Install system dependencies
 # Note: If build fails with DNS errors, ensure the POD has internet connectivity
 RUN apt-get update && apt-get install -y --no-install-recommends \
