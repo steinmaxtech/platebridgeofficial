@@ -3,7 +3,13 @@
 # PlateBridge Camera Discovery Tool
 # Scans the camera network and tests RTSP connections
 #
-# Usage: sudo ./discover-cameras.sh
+# Usage:
+#   sudo ./discover-cameras.sh [interface]
+#
+# Examples:
+#   sudo ./discover-cameras.sh           # Auto-detect camera interface
+#   sudo ./discover-cameras.sh eth1      # Use specific interface
+#   sudo ./discover-cameras.sh enp3s0    # Use specific interface
 #
 
 set -e
@@ -40,17 +46,60 @@ fi
 log_info "📷 PlateBridge Camera Discovery Tool"
 echo ""
 
-# Find camera interface
-log_info "Detecting camera network interface..."
-LAN_INTERFACE=$(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|enp|ens|eno)' | tail -1)
+# Check if interface provided as argument
+if [ -n "$1" ]; then
+    CAMERA_INTERFACE="$1"
+    log_info "Using specified interface: $CAMERA_INTERFACE"
+else
+    # Find camera interface
+    log_info "Detecting network interfaces..."
+    echo ""
 
-if [ -z "$LAN_INTERFACE" ]; then
-    log_error "Could not detect camera interface"
+    # List all interfaces with IPs
+    echo "Available interfaces:"
+    ip -o -4 addr show | awk '{print $2, $4}' | while read iface ip; do
+        echo "  $iface: $ip"
+    done
+    echo ""
+
+    # Try to auto-detect camera interface
+    # Camera LAN is typically 192.168.100.x range
+    CAMERA_INTERFACE=""
+    for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|enp|ens|eno)'); do
+        iface_ip=$(ip addr show $iface 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
+        if [ -n "$iface_ip" ]; then
+            # Check if this is the 192.168.100.x network
+            if [[ "$iface_ip" == 192.168.100.* ]]; then
+                CAMERA_INTERFACE="$iface"
+                log_success "Auto-detected camera interface: $CAMERA_INTERFACE"
+                break
+            fi
+        fi
+    done
+
+    # If not found, prompt user
+    if [ -z "$CAMERA_INTERFACE" ]; then
+        log_warning "Could not auto-detect camera interface (looking for 192.168.100.x)"
+        echo ""
+        read -p "Enter camera LAN interface name (e.g., eth1, enp3s0): " CAMERA_INTERFACE
+
+        if [ -z "$CAMERA_INTERFACE" ]; then
+            log_error "No interface specified"
+            exit 1
+        fi
+    fi
+fi
+
+LAN_INTERFACE="$CAMERA_INTERFACE"
+
+# Get network from interface
+LAN_IP=$(ip addr show $LAN_INTERFACE 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
+if [ -z "$LAN_IP" ]; then
+    log_error "Interface $LAN_INTERFACE has no IP address"
+    log_info "Make sure the camera network is configured"
     exit 1
 fi
 
-# Get network from interface
-LAN_IP=$(ip addr show $LAN_INTERFACE | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
 LAN_NETWORK=$(echo $LAN_IP | cut -d'.' -f1-3)
 
 log_success "Camera interface: $LAN_INTERFACE ($LAN_IP)"
