@@ -751,9 +751,9 @@ mqtt:
   topic_prefix: frigate
   client_id: frigate
 
-# Hardware decode only
+# Use CPU decoding (no hardware acceleration)
 ffmpeg:
-  hwaccel_args: preset-vaapi
+  hwaccel_args: []
 
 # Keep DB on USB storage
 database:
