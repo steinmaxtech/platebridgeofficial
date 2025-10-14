@@ -24,7 +24,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
 COPY complete_pod_agent.py .
-COPY config.example.yaml .
 
 # Create directories
 RUN mkdir -p /config /logs /recordings /tmp/hls_output
@@ -33,4 +32,5 @@ RUN mkdir -p /config /logs /recordings /tmp/hls_output
 EXPOSE 8000 1883
 
 # Run the agent
-CMD ["python3", "complete_pod_agent.py"]
+# config.yaml will be mounted at runtime via volume mount
+CMD ["python3", "complete_pod_agent.py", "/app/config.yaml"]

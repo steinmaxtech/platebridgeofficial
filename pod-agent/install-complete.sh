@@ -933,13 +933,13 @@ services:
     container_name: platebridge-agent
     restart: unless-stopped
     volumes:
-      - $INSTALL_DIR/config:/config
+      - $INSTALL_DIR/config/config.yaml:/app/config.yaml:ro
       - $INSTALL_DIR/logs:/logs
       - /media/frigate/recordings:/recordings  # USB storage
     environment:
       - PORTAL_URL=\${PORTAL_URL}
       - POD_API_KEY=\${POD_API_KEY}
-      - SITE_ID=\${SITE_ID}
+      - POD_ID=\${POD_ID}
       - MQTT_HOST=localhost
       - MQTT_PORT=1883
     network_mode: host
