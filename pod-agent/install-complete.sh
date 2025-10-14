@@ -765,8 +765,18 @@ detectors:
     num_threads: 3
 
 cameras:
-  # Add cameras here - Example configuration:
+  # Dummy camera to prevent startup errors
+  # Replace with your actual cameras
+  dummy:
+    enabled: false
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/dummy
+          roles: [detect]
+
+  # Add real cameras here - Example configuration:
   # camera_1:
+  #   enabled: true
   #   ffmpeg:
   #     inputs:
   #       # SUB stream for detection
@@ -1085,8 +1095,9 @@ EOF
     chown $POD_USER:$POD_USER $INSTALL_DIR/docker/.env
     chmod 600 $INSTALL_DIR/docker/.env
 
-    # Create config.yaml for the agent
-    cat > $INSTALL_DIR/docker/config.yaml << EOF
+    # Create config directory and config.yaml for the agent
+    mkdir -p $INSTALL_DIR/config
+    cat > $INSTALL_DIR/config/config.yaml << EOF
 portal_url: "$PORTAL_URL"
 api_key: "$POD_API_KEY"
 pod_id: "$POD_ID"
@@ -1094,6 +1105,9 @@ camera_ip: "192.168.100.100"
 stream_port: 8000
 recordings_dir: "/recordings"
 EOF
+
+    # Also copy to docker directory for building
+    cp $INSTALL_DIR/config/config.yaml $INSTALL_DIR/docker/config.yaml
 
     # Copy all Docker build files to docker directory
     print_step "Copying Docker build files to docker directory..."
