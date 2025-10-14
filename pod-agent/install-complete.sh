@@ -487,6 +487,18 @@ EOF
     # Allow stream server port
     iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 8000 -m state --state NEW -j ACCEPT
 
+    # Allow Frigate Web UI from WAN
+    iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 5000 -m state --state NEW -j ACCEPT
+
+    # Allow go2rtc RTSP from WAN
+    iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 8554 -m state --state NEW -j ACCEPT
+
+    # Allow go2rtc API/WebRTC from WAN
+    iptables -A INPUT -i $WAN_INTERFACE -p tcp --dport 8555 -m state --state NEW -j ACCEPT
+
+    # Allow WebRTC UDP range from WAN
+    iptables -A INPUT -i $WAN_INTERFACE -p udp --dport 50000:50100 -m state --state NEW -j ACCEPT
+
     # Allow all from LAN to POD
     iptables -A INPUT -i $LAN_INTERFACE -s $LAN_NETWORK -j ACCEPT
 
