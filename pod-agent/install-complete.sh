@@ -1241,7 +1241,7 @@ DOCKEREOF
 
     if [ -f ".env" ]; then
         print_step "Starting Docker services..."
-        docker compose up -d
+        docker compose up -d --remove-orphans
         print_success "Docker services started"
     else
         print_warning ".env file not found. Run configuration first."
@@ -1262,7 +1262,7 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=$INSTALL_DIR/docker
-ExecStart=/usr/bin/docker compose up -d
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
 ExecStop=/usr/bin/docker compose down
 User=$POD_USER
 
@@ -1452,7 +1452,7 @@ main() {
     echo "1. Connect cameras to $LAN_INTERFACE"
     echo "2. Run camera discovery: $INSTALL_DIR/discover-cameras.sh"
     echo "3. Configure .env: $INSTALL_DIR/docker/.env"
-    echo "4. Start services: cd $INSTALL_DIR/docker && docker compose up -d"
+    echo "4. Start services: cd $INSTALL_DIR/docker && docker compose up -d --remove-orphans"
     echo "5. Access Frigate: http://$(hostname -I | awk '{print $1}'):5000"
     echo ""
     echo -e "${BLUE}📄 Full configuration details: $INSTALL_DIR/network-info.txt${NC}"
