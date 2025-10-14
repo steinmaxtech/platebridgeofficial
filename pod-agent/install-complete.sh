@@ -651,11 +651,71 @@ create_pod_user() {
     print_success "User $POD_USER created"
 }
 
+setup_usb_storage() {
+    print_header "Setting Up USB Storage for Recordings"
+
+    # Detect USB drive
+    print_step "Detecting USB drives..."
+    USB_DRIVE=$(lsblk -o NAME,SIZE,TYPE,TRAN | grep usb | grep disk | awk '{print $1}' | head -n1)
+
+    if [ -z "$USB_DRIVE" ]; then
+        print_warning "No USB drive detected - will use local storage"
+        return 0
+    fi
+
+    print_success "Found USB drive: /dev/$USB_DRIVE"
+
+    # Check if it has partitions
+    USB_PART=$(lsblk -o NAME,TYPE | grep "^├─\|^└─" | grep "$USB_DRIVE" | head -n1 | awk '{print $1}' | sed 's/[├─└─]//g' | xargs)
+
+    if [ -z "$USB_PART" ]; then
+        print_step "Creating partition..."
+        parted -s /dev/$USB_DRIVE mklabel gpt
+        parted -s /dev/$USB_DRIVE mkpart primary ext4 0% 100%
+        sleep 2
+        USB_PART="${USB_DRIVE}1"
+
+        print_step "Formatting as ext4..."
+        mkfs.ext4 -F /dev/$USB_PART -L FRIGATE_DATA
+    else
+        USB_PART=$(echo $USB_PART | sed 's/^[├└]─//g')
+        FS_TYPE=$(lsblk -o NAME,FSTYPE /dev/$USB_PART | tail -1 | awk '{print $2}')
+        if [ -z "$FS_TYPE" ]; then
+            print_step "Formatting as ext4..."
+            mkfs.ext4 -F /dev/$USB_PART -L FRIGATE_DATA
+        fi
+        e2label /dev/$USB_PART FRIGATE_DATA 2>/dev/null || true
+    fi
+
+    # Get UUID
+    USB_UUID=$(blkid /dev/$USB_PART | grep -oP 'UUID="\K[^"]+')
+    print_success "UUID: $USB_UUID"
+
+    # Create mount point
+    mkdir -p /media/frigate
+
+    # Add to fstab if not already there
+    if ! grep -q "/media/frigate" /etc/fstab; then
+        echo "UUID=$USB_UUID /media/frigate ext4 defaults,nofail 0 2" >> /etc/fstab
+        print_success "Added to /etc/fstab"
+    fi
+
+    # Mount
+    mount -a
+
+    # Create Frigate directories on USB
+    mkdir -p /media/frigate/{recordings,clips,snapshots}
+    chown -R 1000:1000 /media/frigate
+    chmod 755 /media/frigate
+
+    print_success "USB storage configured for Frigate recordings"
+}
+
 setup_directories() {
     print_header "Setting Up Directories"
 
     print_step "Creating directory structure..."
-    mkdir -p $INSTALL_DIR/{config,docker,logs,recordings,frigate}
+    mkdir -p $INSTALL_DIR/{config,docker,logs,frigate}
     mkdir -p $INSTALL_DIR/frigate/{config,storage,media}
 
     print_step "Setting permissions..."
@@ -671,45 +731,77 @@ install_frigate() {
     print_step "Creating Frigate configuration..."
     cat > $INSTALL_DIR/frigate/config/config.yml << 'EOF'
 # Frigate Configuration for PlateBridge POD
+ui:
+  timezone: America/New_York
+
 mqtt:
-  enabled: true
-  host: localhost
-  port: 1883
+  host: mosquitto
+  topic_prefix: frigate
+  client_id: frigate
+
+# Hardware decode only
+ffmpeg:
+  hwaccel_args: preset-vaapi
+
+# Keep DB on USB storage
+database:
+  path: /media/frigate/frigate.db
 
 detectors:
   cpu1:
     type: cpu
+    num_threads: 3
 
 cameras:
-  # Add cameras here
-  # Example:
-  # front_gate:
+  # Add cameras here - Example configuration:
+  # camera_1:
   #   ffmpeg:
   #     inputs:
-  #       - path: rtsp://192.168.100.100:554/stream
-  #         roles:
-  #           - detect
-  #           - record
+  #       # SUB stream for detection
+  #       - path: rtsp://admin:password@192.168.100.100:554/
+  #         roles: [detect]
+  #       # MAIN stream for recording
+  #       - path: rtsp://admin:password@192.168.100.100:554/
+  #         roles: [record]
   #   detect:
-  #     width: 1280
-  #     height: 720
-  #   record:
-  #     enabled: true
+  #     width: 640
+  #     height: 360
+  #     fps: 5
   #   snapshots:
   #     enabled: true
+  #   objects:
+  #     track:
+  #       - car
+  #       - person
+  #       - truck
+  #       - motorcycle
+  #       - bus
+  #       - bicycle
+  #       - license_plate
+  #     filters:
+  #       car:
+  #         min_area: 140000
+  #         max_area: 2000000
+  #         threshold: 0.8
 
 record:
   enabled: true
   retain:
     days: 7
-  events:
-    retain:
-      default: 14
+    mode: motion
 
 snapshots:
   enabled: true
   retain:
-    default: 14
+    default: 7
+
+lpr:
+  enabled: true
+
+detect:
+  enabled: true
+
+version: 0.16-0
 EOF
 
     print_step "Creating POD Agent Dockerfile..."
@@ -759,6 +851,17 @@ EOF
 version: '3.8'
 
 services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - $INSTALL_DIR/frigate/mosquitto:/mosquitto/data
+      - $INSTALL_DIR/frigate/mosquitto/log:/mosquitto/log
+    command: mosquitto -c /mosquitto-no-auth.conf
+
   frigate:
     image: ghcr.io/blakeblackshear/frigate:stable
     container_name: frigate
@@ -767,9 +870,10 @@ services:
     shm_size: 256mb
     devices:
       - /dev/bus/usb:/dev/bus/usb  # USB cameras
+      - /dev/dri:/dev/dri          # Hardware acceleration
     volumes:
       - $INSTALL_DIR/frigate/config:/config
-      - $INSTALL_DIR/frigate/storage:/media/frigate
+      - /media/frigate:/media/frigate  # USB storage for recordings
       - /etc/localtime:/etc/localtime:ro
       - type: tmpfs
         target: /tmp/cache
@@ -778,20 +882,13 @@ services:
     ports:
       - "5000:5000"    # Web UI
       - "8554:8554"    # RTSP feeds
-      - "8555:8555"    # WebRTC
+      - "8555:8555/tcp"    # WebRTC over tcp
+      - "8555:8555/udp"    # WebRTC over udp
     environment:
       - FRIGATE_RTSP_PASSWORD=password
     network_mode: host
-
-  mqtt:
-    image: eclipse-mosquitto:latest
-    container_name: mqtt
-    restart: unless-stopped
-    ports:
-      - "1883:1883"
-    volumes:
-      - $INSTALL_DIR/frigate/mosquitto:/mosquitto/data
-      - $INSTALL_DIR/frigate/mosquitto/log:/mosquitto/log
+    depends_on:
+      - mosquitto
 
   platebridge-agent:
     build:
@@ -803,7 +900,7 @@ services:
     volumes:
       - $INSTALL_DIR/config:/config
       - $INSTALL_DIR/logs:/logs
-      - $INSTALL_DIR/recordings:/recordings
+      - /media/frigate/recordings:/recordings  # USB storage
     environment:
       - PORTAL_URL=\${PORTAL_URL}
       - POD_API_KEY=\${POD_API_KEY}
@@ -813,7 +910,7 @@ services:
     network_mode: host
     depends_on:
       - frigate
-      - mqtt
+      - mosquitto
 EOF
 
     print_step "Creating .env file template..."
@@ -1306,6 +1403,7 @@ main() {
     install_docker
     install_docker_compose
     create_pod_user
+    setup_usb_storage        # Configure USB drive FIRST
     setup_directories
     configure_network
     configure_dhcp
