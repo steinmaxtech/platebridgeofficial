@@ -1183,6 +1183,16 @@ EOF
 start_services() {
     print_header "Starting Services"
 
+    # Check if containers are already running and stop them
+    print_step "Checking for existing containers..."
+    EXISTING_CONTAINERS=$(docker ps -a --filter "name=platebridge-pod\|frigate\|mosquitto" --format "{{.Names}}" 2>/dev/null || true)
+
+    if [ ! -z "$EXISTING_CONTAINERS" ]; then
+        print_warning "Found existing containers, stopping them..."
+        docker stop platebridge-pod frigate mosquitto 2>/dev/null || true
+        print_success "Existing containers stopped"
+    fi
+
     print_step "Checking internet connectivity..."
     if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
         print_success "Internet connectivity OK"
