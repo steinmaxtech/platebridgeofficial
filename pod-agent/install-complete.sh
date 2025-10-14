@@ -727,7 +727,7 @@ setup_directories() {
     print_header "Setting Up Directories"
 
     print_step "Creating directory structure..."
-    mkdir -p $INSTALL_DIR/{config,docker,logs,frigate}
+    mkdir -p $INSTALL_DIR/{config,docker,logs,frigate,platerecognizer}
     mkdir -p $INSTALL_DIR/frigate/{config,storage,media}
 
     print_step "Setting permissions..."
@@ -912,6 +912,19 @@ services:
     depends_on:
       - mosquitto
 
+  platerecognizer:
+    image: platerecognizer/alpr-stream:latest
+    container_name: platerecognizer
+    restart: unless-stopped
+    volumes:
+      - $INSTALL_DIR/platerecognizer:/user-data
+    environment:
+      - LICENSE_KEY=\${PLATE_RECOGNIZER_LICENSE_KEY}
+      - TOKEN=\${PLATE_RECOGNIZER_TOKEN}
+    network_mode: host
+    depends_on:
+      - mosquitto
+
   platebridge-agent:
     build:
       context: .
@@ -933,6 +946,7 @@ services:
     depends_on:
       - frigate
       - mosquitto
+      - platerecognizer
 EOF
 
     print_step "Creating .env file template..."
@@ -942,6 +956,10 @@ PORTAL_URL=https://your-portal.platebridge.io
 POD_API_KEY=your-api-key-here
 SITE_ID=your-site-id-here
 
+# Plate Recognizer Configuration
+PLATE_RECOGNIZER_LICENSE_KEY=your-license-key-here
+PLATE_RECOGNIZER_TOKEN=your-api-token-here
+
 # Frigate Configuration
 FRIGATE_RTSP_PASSWORD=password
 EOF
@@ -950,6 +968,41 @@ EOF
     chown -R $POD_USER:$POD_USER $INSTALL_DIR/frigate
 
     print_success "Frigate configured"
+}
+
+install_platerecognizer() {
+    print_header "Configuring Plate Recognizer Stream"
+
+    print_step "Creating Plate Recognizer config directory..."
+    mkdir -p $INSTALL_DIR/platerecognizer
+
+    print_step "Creating default config..."
+    cat > $INSTALL_DIR/platerecognizer/config.ini << 'EOF'
+[cameras]
+# Camera streams will be configured via Frigate MQTT
+# The POD agent will dynamically configure streams
+
+[alpr]
+# API Configuration
+token = %(PLATE_RECOGNIZER_TOKEN)s
+license_key = %(PLATE_RECOGNIZER_LICENSE_KEY)s
+
+# Recognition Settings
+min_plate_height = 40
+min_score = 0.3
+regions = us
+
+# Detection Settings
+detection_rule = vehicle
+vehicle_detection = true
+
+# Output
+output_format = json
+webhook_url = http://localhost:8000/api/pod/detect
+EOF
+
+    chown -R $POD_USER:$POD_USER $INSTALL_DIR/platerecognizer
+    print_success "Plate Recognizer configured"
 }
 
 install_pod_agent() {
@@ -1083,12 +1136,24 @@ configure_interactive() {
     echo "  API Key: ${POD_API_KEY:0:20}..."
     echo ""
 
+    # Prompt for Plate Recognizer credentials
+    echo ""
+    print_step "Plate Recognizer Configuration"
+    echo "You need a Plate Recognizer Stream license and API token for each POD."
+    echo "Get them from: https://app.platerecognizer.com/"
+    echo ""
+    read -p "Plate Recognizer License Key: " PLATE_LICENSE
+    read -p "Plate Recognizer API Token: " PLATE_TOKEN
+    echo ""
+
     # Create .env file
     cat > $INSTALL_DIR/docker/.env << EOF
 PORTAL_URL=$PORTAL_URL
 POD_API_KEY=$POD_API_KEY
 POD_ID=$POD_ID
 POD_SERIAL=$SERIAL
+PLATE_RECOGNIZER_LICENSE_KEY=$PLATE_LICENSE
+PLATE_RECOGNIZER_TOKEN=$PLATE_TOKEN
 FRIGATE_RTSP_PASSWORD=password
 EOF
 
@@ -1185,11 +1250,11 @@ start_services() {
 
     # Check if containers are already running and stop them
     print_step "Checking for existing containers..."
-    EXISTING_CONTAINERS=$(docker ps -a --filter "name=platebridge-pod\|frigate\|mosquitto" --format "{{.Names}}" 2>/dev/null || true)
+    EXISTING_CONTAINERS=$(docker ps -a --filter "name=platebridge-pod\|frigate\|mosquitto\|platerecognizer" --format "{{.Names}}" 2>/dev/null || true)
 
     if [ ! -z "$EXISTING_CONTAINERS" ]; then
         print_warning "Found existing containers, stopping them..."
-        docker stop platebridge-pod frigate mosquitto 2>/dev/null || true
+        docker stop platebridge-pod platebridge-agent frigate mosquitto platerecognizer 2>/dev/null || true
         print_success "Existing containers stopped"
     fi
 
@@ -1426,6 +1491,7 @@ main() {
     echo "  • Dual-NIC network configuration"
     echo "  • DHCP server for cameras"
     echo "  • Frigate NVR"
+    echo "  • Plate Recognizer Stream"
     echo "  • PlateBridge POD agent"
     echo "  • Camera discovery tools"
     echo ""
@@ -1452,6 +1518,7 @@ main() {
     configure_firewall
     configure_security_hardening
     install_frigate
+    install_platerecognizer
     install_pod_agent
     create_camera_discovery_script
     create_startup_service
@@ -1476,6 +1543,7 @@ main() {
     echo -e "${GREEN}✓ Security hardening applied (fail2ban, auto-updates)${NC}"
     echo -e "${GREEN}✓ SSH hardened (root login disabled)${NC}"
     echo -e "${GREEN}✓ Frigate NVR ready${NC}"
+    echo -e "${GREEN}✓ Plate Recognizer Stream configured${NC}"
     echo -e "${GREEN}✓ POD agent installed${NC}"
     echo ""
     echo -e "${YELLOW}Next Steps:${NC}"
