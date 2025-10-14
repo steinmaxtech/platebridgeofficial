@@ -770,10 +770,10 @@ cameras:
   #   ffmpeg:
   #     inputs:
   #       # SUB stream for detection
-  #       - path: rtsp://admin:password@192.168.100.100:554/
+  #       - path: rtsp://admin:123456@192.168.100.20:554/
   #         roles: [detect]
   #       # MAIN stream for recording
-  #       - path: rtsp://admin:password@192.168.100.100:554/
+  #       - path: rtsp://admin:123456@192.168.100.22:554/
   #         roles: [record]
   #   detect:
   #     width: 640
