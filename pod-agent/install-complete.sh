@@ -1099,11 +1099,17 @@ EOF
     mkdir -p $INSTALL_DIR/config
     cat > $INSTALL_DIR/config/config.yaml << EOF
 portal_url: "$PORTAL_URL"
-api_key: "$POD_API_KEY"
+pod_api_key: "$POD_API_KEY"
 pod_id: "$POD_ID"
+camera_id: "camera_1"
+camera_name: "Main Camera"
+camera_rtsp_url: "rtsp://192.168.100.100:554/stream1"
+camera_position: "main entrance"
 camera_ip: "192.168.100.100"
 stream_port: 8000
 recordings_dir: "/recordings"
+heartbeat_interval: 60
+whitelist_refresh_interval: 300
 EOF
 
     # Also copy to docker directory for building
