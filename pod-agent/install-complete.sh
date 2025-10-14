@@ -1090,11 +1090,12 @@ configure_interactive() {
             \"registration_token\": \"$REG_TOKEN\"
         }")
 
-    # Extract API key and POD ID from response
+    # Extract API key, POD ID, and Community ID from response
     POD_API_KEY=$(echo "$REGISTER_RESPONSE" | grep -o '"api_key":"[^"]*"' | cut -d'"' -f4)
     POD_ID=$(echo "$REGISTER_RESPONSE" | grep -o '"pod_id":"[^"]*"' | cut -d'"' -f4)
+    COMMUNITY_ID=$(echo "$REGISTER_RESPONSE" | grep -o '"community_id":"[^"]*"' | cut -d'"' -f4)
 
-    if [ -z "$POD_API_KEY" ]; then
+    if [ -z "$POD_API_KEY" ] || [ -z "$COMMUNITY_ID" ]; then
         print_error "Failed to register POD with portal"
         echo "Response: $REGISTER_RESPONSE"
         echo ""
@@ -1111,6 +1112,7 @@ configure_interactive() {
     print_success "POD registered successfully!"
     echo ""
     echo "  POD ID: $POD_ID"
+    echo "  Community ID: $COMMUNITY_ID"
     echo "  API Key: ${POD_API_KEY:0:20}..."
     echo ""
 
@@ -1129,6 +1131,7 @@ configure_interactive() {
 PORTAL_URL=$PORTAL_URL
 POD_API_KEY=$POD_API_KEY
 POD_ID=$POD_ID
+COMMUNITY_ID=$COMMUNITY_ID
 POD_SERIAL=$SERIAL
 PLATE_RECOGNIZER_LICENSE_KEY=$PLATE_LICENSE
 PLATE_RECOGNIZER_TOKEN=$PLATE_TOKEN
@@ -1144,6 +1147,7 @@ EOF
 portal_url: "$PORTAL_URL"
 pod_api_key: "$POD_API_KEY"
 pod_id: "$POD_ID"
+community_id: "$COMMUNITY_ID"
 camera_id: "camera_1"
 camera_name: "Main Camera"
 camera_rtsp_url: "rtsp://192.168.100.100:554/stream1"

@@ -145,12 +145,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       pod_id: podId,
       api_key: apiKey,
+      community_id: community_id,
       docker_compose_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/pods/config/${podId}`,
       env: {
         PLATEBRIDGE_API: `${process.env.NEXT_PUBLIC_SITE_URL}/api`,
         PLATEBRIDGE_API_KEY: apiKey,
         POD_ID: podId,
         PORTAL_URL: process.env.NEXT_PUBLIC_SITE_URL,
+        COMMUNITY_ID: community_id,
       },
       message: 'POD registered successfully',
     });

@@ -148,26 +148,28 @@ class CompletePodAgent:
 
     async def refresh_whitelist(self) -> bool:
         try:
-            site_name = self.config.get('site_name', 'main-gate')
-            company_id = self.config.get('company_id', '')
+            community_id = self.config.get('community_id', '')
+            if not community_id:
+                logger.error("No community_id configured")
+                return False
 
-            url = f"{self.config['portal_url']}/api/plates"
-            params = {
-                'site': site_name,
-                'company_id': company_id
+            url = f"{self.config['portal_url']}/api/access/list/{community_id}"
+            headers = {
+                'Authorization': f"Bearer {self.config['pod_api_key']}",
+                'Content-Type': 'application/json'
             }
 
             logger.info("Fetching whitelist from portal...")
-            response = requests.get(url, params=params, timeout=10)
+            response = requests.get(url, headers=headers, timeout=10)
 
             if response.status_code == 200:
                 data = response.json()
-                entries = data.get('entries', [])
+                access_list = data.get('access_list', [])
 
                 self.whitelist_cache = {
-                    entry['plate']: entry
-                    for entry in entries
-                    if entry.get('enabled', True)
+                    entry['license_plate']: entry
+                    for entry in access_list
+                    if entry.get('is_active', True)
                 }
 
                 self.save_whitelist_cache(data)
