@@ -71,10 +71,10 @@ CURRENT_IP=$(ip -4 addr show $LAN_INTERFACE | grep -oP '(?<=inet\s)\d+(\.\d+){3}
 if [ -n "$CURRENT_IP" ]; then
     print_success "Has IP: $CURRENT_IP"
 else
-    print_step "No IP, assigning 192.168.100.1..."
+    print_step "No IP, assigning 192.168.1.1..."
     ip addr flush dev $LAN_INTERFACE
-    ip addr add 192.168.100.1/24 dev $LAN_INTERFACE
-    CURRENT_IP="192.168.100.1"
+    ip addr add 192.168.1.1/24 dev $LAN_INTERFACE
+    CURRENT_IP="192.168.1.1"
 fi
 
 echo ""
@@ -144,7 +144,7 @@ ip neighbor show dev $LAN_INTERFACE
 
 echo ""
 print_step "Testing broadcast ping..."
-ping -I $LAN_INTERFACE -b -c 3 192.168.100.255 2>&1 | grep "bytes from" || echo "No responses"
+ping -I $LAN_INTERFACE -b -c 3 192.168.1.255 2>&1 | grep "bytes from" || echo "No responses"
 
 echo ""
 echo "═══════════════════════════════════════"
@@ -164,8 +164,8 @@ mkdir -p /etc/dnsmasq.d
 cat > /etc/dnsmasq.d/test.conf <<EOF
 interface=$LAN_INTERFACE
 bind-interfaces
-dhcp-range=192.168.100.100,192.168.100.200,12h
-dhcp-option=option:router,192.168.100.1
+dhcp-range=192.168.1.100,192.168.1.200,12h
+dhcp-option=option:router,192.168.1.1
 dhcp-option=option:dns-server,8.8.8.8
 log-dhcp
 log-queries

@@ -45,11 +45,11 @@ else
     ip -4 addr show | grep -E "^[0-9]+: |inet " | sed 's/^/  /'
     echo ""
 
-    # Try auto-detect 192.168.100.x
+    # Try auto-detect 192.168.1.x
     LAN_INTERFACE=""
     for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|enp|ens|eno)'); do
         iface_ip=$(ip addr show $iface 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
-        if [[ "$iface_ip" == 192.168.100.* ]]; then
+        if [[ "$iface_ip" == 192.168.1.* ]]; then
             LAN_INTERFACE="$iface"
             print_success "Auto-detected: $LAN_INTERFACE ($iface_ip)"
             break
@@ -86,13 +86,13 @@ fi
 
 # Ensure it has the right IP
 CURRENT_IP=$(ip -4 addr show $LAN_INTERFACE | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
-if [ "$CURRENT_IP" != "192.168.100.1" ]; then
-    print_step "Setting IP to 192.168.100.1..."
+if [ "$CURRENT_IP" != "192.168.1.1" ]; then
+    print_step "Setting IP to 192.168.1.1..."
     ip addr flush dev $LAN_INTERFACE
-    ip addr add 192.168.100.1/24 dev $LAN_INTERFACE
+    ip addr add 192.168.1.1/24 dev $LAN_INTERFACE
 fi
 
-print_success "Interface configured: $LAN_INTERFACE = 192.168.100.1"
+print_success "Interface configured: $LAN_INTERFACE = 192.168.1.1"
 
 print_header "Step 2: Stop Conflicting Services"
 
@@ -131,10 +131,10 @@ interface=$LAN_INTERFACE
 bind-interfaces
 
 # DHCP range for cameras
-dhcp-range=192.168.100.100,192.168.100.200,24h
+dhcp-range=192.168.1.100,192.168.1.200,24h
 
 # Gateway (this POD)
-dhcp-option=option:router,192.168.100.1
+dhcp-option=option:router,192.168.1.1
 
 # DNS servers
 dhcp-option=option:dns-server,8.8.8.8,8.8.4.4
@@ -213,8 +213,8 @@ print_success "dnsmasq is now running and ready for DHCP requests"
 echo ""
 echo "Configuration:"
 echo "  Interface:    $LAN_INTERFACE"
-echo "  POD IP:       192.168.100.1"
-echo "  DHCP Range:   192.168.100.100 - 192.168.100.200"
+echo "  POD IP:       192.168.1.1"
+echo "  DHCP Range:   192.168.1.100 - 192.168.1.200"
 echo ""
 echo "Next steps:"
 echo "  1. Connect camera/device to $LAN_INTERFACE network"

@@ -17,9 +17,9 @@ echo ""
 
 # Configuration - CHANGE THESE IF NEEDED
 LAN_INTERFACE="enp1s0"  # Your camera network interface
-LAN_IP="192.168.100.1"
-DHCP_START="192.168.100.100"
-DHCP_END="192.168.100.200"
+LAN_IP="192.168.1.1"
+DHCP_START="192.168.1.100"
+DHCP_END="192.168.1.200"
 
 # Check root
 if [ "$EUID" -ne 0 ]; then

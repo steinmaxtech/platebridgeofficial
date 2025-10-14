@@ -32,10 +32,10 @@ INSTALL_DIR="/opt/platebridge"
 POD_USER="platebridge"
 WAN_INTERFACE="enp3s0"  # Cellular/Internet connection
 LAN_INTERFACE="enp1s0"  # Camera network
-LAN_IP="192.168.100.1"
-LAN_NETWORK="192.168.100.0/24"
-DHCP_RANGE_START="192.168.100.100"
-DHCP_RANGE_END="192.168.100.200"
+LAN_IP="192.168.1.1"
+LAN_NETWORK="192.168.1.0/24"
+DHCP_RANGE_START="192.168.1.100"
+DHCP_RANGE_END="192.168.1.200"
 SSH_PORT="22"  # Will be changed to random port for security
 
 ################################################################################
@@ -461,7 +461,7 @@ EOF
     iptables -A INPUT -i $LAN_INTERFACE -s 10.0.0.0/8 -j DROP
     iptables -A INPUT -i $LAN_INTERFACE -s 169.254.0.0/16 -j DROP
     iptables -A INPUT -i $LAN_INTERFACE -s 172.16.0.0/12 -j DROP
-    iptables -A INPUT -i $LAN_INTERFACE ! -s 192.168.100.0/24 -j DROP
+    iptables -A INPUT -i $LAN_INTERFACE ! -s 192.168.1.0/24 -j DROP
 
     # Protect against port scanning
     iptables -N port-scanning
@@ -780,10 +780,10 @@ cameras:
   #   ffmpeg:
   #     inputs:
   #       # SUB stream for detection
-  #       - path: rtsp://admin:123456@192.168.100.20:554/
+  #       - path: rtsp://admin:123456@192.168.1.20:554/
   #         roles: [detect]
   #       # MAIN stream for recording
-  #       - path: rtsp://admin:123456@192.168.100.22:554/
+  #       - path: rtsp://admin:123456@192.168.1.22:554/
   #         roles: [record]
   #   detect:
   #     width: 640
@@ -1025,10 +1025,10 @@ create_camera_discovery_script() {
     cat > $INSTALL_DIR/discover-cameras.sh << 'EOF'
 #!/bin/bash
 
-echo "Scanning for cameras on 192.168.100.0/24..."
+echo "Scanning for cameras on 192.168.1.0/24..."
 echo ""
 
-sudo arp-scan --interface=enp1s0 192.168.100.0/24 | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}"
+sudo arp-scan --interface=enp1s0 192.168.1.0/24 | grep -E "([0-9]{1,3}\.){3}[0-9]{1,3}"
 
 echo ""
 echo "DHCP leases:"
@@ -1037,7 +1037,7 @@ cat /var/lib/misc/dnsmasq.leases
 echo ""
 echo "Testing RTSP streams (common URLs)..."
 
-for ip in $(sudo arp-scan --interface=enp1s0 192.168.100.0/24 | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | grep "192.168.100"); do
+for ip in $(sudo arp-scan --interface=enp1s0 192.168.1.0/24 | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | grep "192.168.1"); do
     echo "Testing $ip..."
 
     # Common RTSP paths
@@ -1150,9 +1150,9 @@ pod_id: "$POD_ID"
 community_id: "$COMMUNITY_ID"
 camera_id: "camera_1"
 camera_name: "Main Camera"
-camera_rtsp_url: "rtsp://192.168.100.100:554/stream1"
+camera_rtsp_url: "rtsp://192.168.1.100:554/stream1"
 camera_position: "main entrance"
-camera_ip: "192.168.100.100"
+camera_ip: "192.168.1.100"
 stream_port: 8000
 recordings_dir: "/recordings"
 heartbeat_interval: 60

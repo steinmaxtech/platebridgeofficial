@@ -87,9 +87,9 @@ pod_api_key: "$API_KEY"
 pod_id: "$POD_ID"
 camera_id: "camera_1"
 camera_name: "Main Camera"
-camera_rtsp_url: "rtsp://192.168.100.100:554/stream1"
+camera_rtsp_url: "rtsp://192.168.1.100:554/stream1"
 camera_position: "main entrance"
-camera_ip: "192.168.100.100"
+camera_ip: "192.168.1.100"
 stream_port: 8000
 recordings_dir: "/recordings"
 heartbeat_interval: 60

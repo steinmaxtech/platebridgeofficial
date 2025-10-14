@@ -51,15 +51,15 @@ echo ""
 echo -e "${GREEN}►${NC} Configuring interface..."
 ip link set $IFACE up
 ip addr flush dev $IFACE
-ip addr add 192.168.100.1/24 dev $IFACE
+ip addr add 192.168.1.1/24 dev $IFACE
 
 # Verify
-if ! ip addr show $IFACE | grep -q "192.168.100.1"; then
+if ! ip addr show $IFACE | grep -q "192.168.1.1"; then
     echo -e "${RED}✗${NC} Failed to set IP on $IFACE"
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Interface configured: 192.168.100.1/24"
+echo -e "${GREEN}✓${NC} Interface configured: 192.168.1.1/24"
 ip addr show $IFACE | grep "inet "
 echo ""
 
@@ -109,11 +109,11 @@ server=8.8.8.8
 server=8.8.4.4
 
 # DHCP Configuration
-dhcp-range=$IFACE,192.168.100.100,192.168.100.200,24h
+dhcp-range=$IFACE,192.168.1.100,192.168.1.200,24h
 
 # DHCP Options
-dhcp-option=$IFACE,3,192.168.100.1
-dhcp-option=$IFACE,6,192.168.100.1
+dhcp-option=$IFACE,3,192.168.1.1
+dhcp-option=$IFACE,6,192.168.1.1
 dhcp-option=$IFACE,1,255.255.255.0
 
 # Domain
@@ -183,8 +183,8 @@ if ss -ulnp | grep -q "dnsmasq.*:67 "; then
     echo ""
     echo "Configuration:"
     echo "  Interface:    $IFACE"
-    echo "  POD IP:       192.168.100.1/24"
-    echo "  DHCP Range:   192.168.100.100 - 192.168.100.200"
+    echo "  POD IP:       192.168.1.1/24"
+    echo "  DHCP Range:   192.168.1.100 - 192.168.1.200"
     echo ""
     echo "Monitor DHCP requests:"
     echo "  sudo journalctl -u dnsmasq -f"
@@ -194,8 +194,8 @@ if ss -ulnp | grep -q "dnsmasq.*:67 "; then
     echo ""
     echo "Next steps:"
     echo "  1. Connect camera to $IFACE network"
-    echo "  2. Camera should get IP 192.168.100.100-200"
-    echo "  3. Find camera: sudo nmap -sn 192.168.100.0/24"
+    echo "  2. Camera should get IP 192.168.1.100-200"
+    echo "  3. Find camera: sudo nmap -sn 192.168.1.0/24"
     echo ""
 else
     echo -e "${RED}✗${NC} Still not listening on port 67!"

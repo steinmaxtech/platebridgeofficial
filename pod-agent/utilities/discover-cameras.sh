@@ -63,13 +63,13 @@ else
     echo ""
 
     # Try to auto-detect camera interface
-    # Camera LAN is typically 192.168.100.x range
+    # Camera LAN is typically 192.168.1.x range
     CAMERA_INTERFACE=""
     for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|enp|ens|eno)'); do
         iface_ip=$(ip addr show $iface 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
         if [ -n "$iface_ip" ]; then
-            # Check if this is the 192.168.100.x network
-            if [[ "$iface_ip" == 192.168.100.* ]]; then
+            # Check if this is the 192.168.1.x network
+            if [[ "$iface_ip" == 192.168.1.* ]]; then
                 CAMERA_INTERFACE="$iface"
                 log_success "Auto-detected camera interface: $CAMERA_INTERFACE"
                 break
@@ -79,7 +79,7 @@ else
 
     # If not found, prompt user
     if [ -z "$CAMERA_INTERFACE" ]; then
-        log_warning "Could not auto-detect camera interface (looking for 192.168.100.x)"
+        log_warning "Could not auto-detect camera interface (looking for 192.168.1.x)"
         echo ""
         read -p "Enter camera LAN interface name (e.g., eth1, enp3s0): " CAMERA_INTERFACE
 

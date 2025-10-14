@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 LAN_INTERFACE="enp1s0"
-LAN_IP="192.168.100.1"
+LAN_IP="192.168.1.1"
 
 echo -e "${GREEN}=== DHCP Diagnostic Report ===${NC}"
 echo ""

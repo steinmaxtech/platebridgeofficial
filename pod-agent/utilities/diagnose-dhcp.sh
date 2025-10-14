@@ -39,7 +39,7 @@ LAN_INTERFACE=""
 LAN_IP=""
 for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|enp|ens|eno)'); do
     iface_ip=$(ip addr show $iface 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
-    if [[ "$iface_ip" == 192.168.100.* ]]; then
+    if [[ "$iface_ip" == 192.168.1.* ]]; then
         LAN_INTERFACE="$iface"
         LAN_IP="$iface_ip"
         print_success "Found camera LAN: $LAN_INTERFACE ($LAN_IP)"
@@ -48,7 +48,7 @@ for iface in $(ip -o link show | awk -F': ' '{print $2}' | grep -E '^(eth|enp|en
 done
 
 if [ -z "$LAN_INTERFACE" ]; then
-    print_warning "Could not auto-detect camera interface (192.168.100.x)"
+    print_warning "Could not auto-detect camera interface (192.168.1.x)"
     read -p "Enter camera LAN interface (e.g., eth1): " LAN_INTERFACE
     if [ -z "$LAN_INTERFACE" ]; then
         print_error "No interface specified"
@@ -78,9 +78,9 @@ fi
 
 if [ -z "$LAN_IP" ]; then
     print_error "No IP address on $LAN_INTERFACE!"
-    print_step "Assigning 192.168.100.1..."
-    ip addr add 192.168.100.1/24 dev $LAN_INTERFACE || true
-    LAN_IP="192.168.100.1"
+    print_step "Assigning 192.168.1.1..."
+    ip addr add 192.168.1.1/24 dev $LAN_INTERFACE || true
+    LAN_IP="192.168.1.1"
 fi
 
 print_success "Interface OK: $LAN_INTERFACE = $LAN_IP"
@@ -115,9 +115,9 @@ if [ ! -f "$CONF" ]; then
 # PlateBridge Camera DHCP
 interface=$LAN_INTERFACE
 bind-interfaces
-dhcp-range=192.168.100.100,192.168.100.200,24h
-dhcp-option=option:dns-server,192.168.100.1
-dhcp-option=option:router,192.168.100.1
+dhcp-range=192.168.1.100,192.168.1.200,24h
+dhcp-option=option:dns-server,192.168.1.1
+dhcp-option=option:router,192.168.1.1
 log-dhcp
 log-queries
 EOF
@@ -250,12 +250,12 @@ echo ""
 echo "3. Network Check:"
 echo "   • Watch packets: tcpdump -i $LAN_INTERFACE -vvv port 67 or port 68"
 echo "   • Check ARP: ip neighbor show dev $LAN_INTERFACE"
-echo "   • Try pinging broadcast: ping -I $LAN_INTERFACE -b 192.168.100.255"
+echo "   • Try pinging broadcast: ping -I $LAN_INTERFACE -b 192.168.1.255"
 echo ""
 echo "4. Test with Static IP:"
-echo "   • Set camera to: 192.168.100.50"
-echo "   • Ping from POD: ping 192.168.100.50"
-echo "   • Access web UI: http://192.168.100.50"
+echo "   • Set camera to: 192.168.1.50"
+echo "   • Ping from POD: ping 192.168.1.50"
+echo "   • Access web UI: http://192.168.1.50"
 echo ""
 echo "Useful commands:"
 echo "  systemctl status dnsmasq"

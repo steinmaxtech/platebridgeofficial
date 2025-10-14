@@ -104,7 +104,7 @@ cat > $INSTALL_DIR/config.yaml << EOF
 portal_url: "$PORTAL_URL"
 api_key: "$POD_API_KEY"
 pod_id: "$POD_ID"
-camera_ip: "192.168.100.100"
+camera_ip: "192.168.1.100"
 stream_port: 8000
 recordings_dir: "$INSTALL_DIR/recordings"
 EOF

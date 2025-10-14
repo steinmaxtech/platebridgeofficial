@@ -288,7 +288,7 @@ network:
       nameservers:
         addresses: [8.8.8.8, 8.8.4.4]
     enp1s0:  # LAN interface (camera network)
-      addresses: [192.168.100.1/24]
+      addresses: [192.168.1.1/24]
 \`\`\`
 
 Apply: \`sudo netplan apply\`

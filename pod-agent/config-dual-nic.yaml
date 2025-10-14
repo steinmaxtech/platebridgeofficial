@@ -4,7 +4,7 @@
 #
 # Network Setup:
 #   WAN (enp3s0): Internet connection
-#   LAN (enp1s0): Camera network (192.168.100.0/24)
+#   LAN (enp1s0): Camera network (192.168.1.0/24)
 
 # ============================================================================
 # PORTAL CONNECTION
@@ -27,8 +27,8 @@ wan_interface: "enp3s0"  # or eth0, check: ip addr show
 
 # LAN interface (camera network)
 lan_interface: "enp1s0"  # or eth1, check: ip addr show
-lan_network: "192.168.100.0/24"
-lan_gateway: "192.168.100.1"  # POD's IP on camera network
+lan_network: "192.168.1.0/24"
+lan_gateway: "192.168.1.1"  # POD's IP on camera network
 
 # ============================================================================
 # CAMERA CONFIGURATION
@@ -39,7 +39,7 @@ lan_gateway: "192.168.100.1"  # POD's IP on camera network
 cameras:
   - id: "gate-camera-1"
     name: "Main Gate Camera"
-    rtsp_url: "rtsp://192.168.100.100:554/stream"
+    rtsp_url: "rtsp://192.168.1.100:554/stream"
     position: "main entrance"
     enabled: true
     detection:
@@ -51,7 +51,7 @@ cameras:
 
   # - id: "gate-camera-2"
   #   name: "Exit Gate Camera"
-  #   rtsp_url: "rtsp://192.168.100.101:554/stream"
+  #   rtsp_url: "rtsp://192.168.1.101:554/stream"
   #   position: "exit gate"
   #   enabled: true
 

@@ -88,7 +88,7 @@ portal:
 
 cameras:
   - name: "Camera 1"
-    stream_url: "rtsp://admin:password@192.168.100.50:554/stream1"
+    stream_url: "rtsp://admin:password@192.168.1.50:554/stream1"
     enabled: true
 
 recording:
