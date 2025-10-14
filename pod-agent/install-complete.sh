@@ -973,36 +973,14 @@ EOF
 install_platerecognizer() {
     print_header "Configuring Plate Recognizer Stream"
 
-    print_step "Creating Plate Recognizer config directory..."
+    print_step "Creating Plate Recognizer data directory..."
     mkdir -p $INSTALL_DIR/platerecognizer
 
-    print_step "Creating default config..."
-    cat > $INSTALL_DIR/platerecognizer/config.ini << 'EOF'
-[cameras]
-# Camera streams will be configured via Frigate MQTT
-# The POD agent will dynamically configure streams
-
-[alpr]
-# API Configuration
-token = %(PLATE_RECOGNIZER_TOKEN)s
-license_key = %(PLATE_RECOGNIZER_LICENSE_KEY)s
-
-# Recognition Settings
-min_plate_height = 40
-min_score = 0.3
-regions = us
-
-# Detection Settings
-detection_rule = vehicle
-vehicle_detection = true
-
-# Output
-output_format = json
-webhook_url = http://localhost:8000/api/pod/detect
-EOF
+    # Plate Recognizer Stream uses environment variables directly
+    # No config file needed - credentials passed via LICENSE_KEY and TOKEN env vars
 
     chown -R $POD_USER:$POD_USER $INSTALL_DIR/platerecognizer
-    print_success "Plate Recognizer configured"
+    print_success "Plate Recognizer data directory created"
 }
 
 install_pod_agent() {
