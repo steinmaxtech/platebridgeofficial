@@ -3,6 +3,7 @@
 set -e
 
 API_KEY="$1"
+PORTAL_URL="https://platebridgeofficial.vercel.app"
 REPO_URL="https://github.com/yourusername/platebridge-pod-agent.git"
 
 echo "======================================"
@@ -13,16 +14,12 @@ echo ""
 if [ -z "$API_KEY" ]; then
     echo "✗ Error: No API key provided"
     echo ""
-    echo "Usage: curl -fsSL https://your-portal.com/install-pod-docker.sh | bash -s -- \"YOUR_API_KEY\""
-    exit 1
-fi
-
-if [[ ! $API_KEY =~ ^pbk_ ]]; then
-    echo "✗ Error: Invalid API key format (must start with pbk_)"
+    echo "Usage: curl -fsSL https://platebridgeofficial.vercel.app/install-pod-docker.sh | bash -s -- \"YOUR_API_KEY\""
     exit 1
 fi
 
 echo "✓ API key received"
+echo "✓ Portal: $PORTAL_URL"
 
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -36,33 +33,6 @@ check_docker() {
     echo "✓ Docker found"
 }
 
-detect_portal_url() {
-    echo ""
-    echo "Detecting portal URL..."
-
-    local test_urls=(
-        "https://platebridgeofficial.vercel.app"
-        "https://platebridge.vercel.app"
-        "https://app.platebridge.com"
-    )
-
-    for url in "${test_urls[@]}"; do
-        local response=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer $API_KEY" \
-            "${url}/api/pod/info" 2>/dev/null || echo "000")
-        local http_code=$(echo "$response" | tail -n1)
-
-        if [ "$http_code" = "200" ]; then
-            PORTAL_URL="$url"
-            echo "✓ Portal detected: $PORTAL_URL"
-            return 0
-        fi
-    done
-
-    echo "✗ Could not detect portal URL"
-    read -p "Enter your portal URL: " PORTAL_URL
-    PORTAL_URL=$(echo "$PORTAL_URL" | sed 's:/*$::')
-    return 0
-}
 
 fetch_pod_info() {
     echo ""
@@ -193,7 +163,6 @@ build_and_start() {
 
 main() {
     check_docker
-    detect_portal_url
 
     if ! fetch_pod_info; then
         echo ""
