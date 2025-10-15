@@ -1,6 +1,45 @@
 import { createClient } from '@/lib/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
+async function hashApiKey(apiKey: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(apiKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+async function verifyApiKey(authHeader: string | null, supabase: any) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const apiKey = authHeader.substring(7);
+
+  if (!apiKey.startsWith('pbk_')) {
+    return null;
+  }
+
+  try {
+    const keyHash = await hashApiKey(apiKey);
+
+    const { data: keyData, error } = await supabase
+      .from('pod_api_keys')
+      .select('id, community_id, pod_id, revoked_at')
+      .eq('key_hash', keyHash)
+      .maybeSingle();
+
+    if (error || !keyData || keyData.revoked_at) {
+      return null;
+    }
+
+    return keyData;
+  } catch (error) {
+    return null;
+  }
+}
+
 /**
  * GET /api/access/list/:community_id
  * Returns all active access list entries for a community
@@ -18,6 +57,25 @@ export async function GET(
       return NextResponse.json(
         { error: 'Missing community_id' },
         { status: 400 }
+      );
+    }
+
+    // Verify API key authentication
+    const authHeader = request.headers.get('Authorization');
+    const apiKeyData = await verifyApiKey(authHeader, supabase);
+
+    if (!apiKeyData) {
+      return NextResponse.json(
+        { error: 'Invalid or revoked API key' },
+        { status: 401 }
+      );
+    }
+
+    // Verify the API key belongs to this community
+    if (apiKeyData.community_id !== community_id) {
+      return NextResponse.json(
+        { error: 'API key does not have access to this community' },
+        { status: 403 }
       );
     }
 

@@ -179,6 +179,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       pod_id,
+      community_id: keyDetails.community_id,
       cameras_registered: cameras.length
     });
   } catch (error: any) {

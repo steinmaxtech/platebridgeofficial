@@ -38,6 +38,7 @@ class CompletePodAgent:
     def __init__(self, config_path: str = "config.yaml"):
         self.config_path = config_path
         self.config = self.load_config()
+        self.community_id = None
         self.whitelist_cache = {}
         self.cache_path = Path("whitelist_cache.json")
         self.last_whitelist_refresh = None
@@ -118,6 +119,10 @@ class CompletePodAgent:
             if missing:
                 raise ValueError(f"Missing required config fields: {', '.join(missing)}")
 
+            # Store community_id if provided in config (optional now)
+            if 'community_id' in config:
+                self.community_id = config['community_id']
+
             return config
         except FileNotFoundError:
             logger.error(f"Config file not found: {self.config_path}")
@@ -148,12 +153,11 @@ class CompletePodAgent:
 
     async def refresh_whitelist(self) -> bool:
         try:
-            community_id = self.config.get('community_id', '')
-            if not community_id:
-                logger.error("No community_id configured")
+            if not self.community_id:
+                logger.warning("No community_id available yet, skipping whitelist refresh")
                 return False
 
-            url = f"{self.config['portal_url']}/api/access/list/{community_id}"
+            url = f"{self.config['portal_url']}/api/access/list/{self.community_id}"
             headers = {
                 'Authorization': f"Bearer {self.config['pod_api_key']}",
                 'Content-Type': 'application/json'
@@ -434,6 +438,13 @@ class CompletePodAgent:
             response = requests.post(url, headers=headers, json=payload, timeout=5)
 
             if response.status_code == 200:
+                result = response.json()
+
+                # Store community_id from response if not already set
+                if not self.community_id and 'community_id' in result:
+                    self.community_id = result['community_id']
+                    logger.info(f"Community ID obtained: {self.community_id}")
+
                 logger.debug("Heartbeat sent")
                 return True
             else:

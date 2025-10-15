@@ -5,6 +5,7 @@
 # Portal connection
 portal_url: "https://your-portal.vercel.app"
 pod_api_key: "pbk_your_api_key_here"  # Get from portal /pods page
+# community_id: "uuid-here"  # Optional: auto-detected from API key on first heartbeat
 
 # Pod identification
 pod_id: "main-gate-pod"  # Unique name for this pod (auto-registers)
