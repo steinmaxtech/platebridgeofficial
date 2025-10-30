@@ -198,6 +198,21 @@ install_docker_compose() {
     print_success "Docker Compose available: $(docker compose version)"
 }
 
+install_tailscale() {
+    print_header "Installing Tailscale"
+
+    if command -v tailscale &> /dev/null; then
+        print_warning "Tailscale already installed: $(tailscale version)"
+        return 0
+    fi
+
+    print_step "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh
+
+    print_success "Tailscale installed"
+    print_warning "After installation, connect with: sudo tailscale up"
+}
+
 configure_network() {
     print_header "Configuring Dual-NIC Network"
 
@@ -1381,8 +1396,15 @@ Services (Accessible from WAN):
 - Stream Server:   Port 8000
 - RTSP Server:     rtsp://$(hostname -I | awk '{print $1}'):8554
 
+Tailscale Secure Network:
+- Command:         sudo tailscale up
+- Status:          tailscale status
+- IP Address:      tailscale ip -4
+- Benefits:        Encrypted WireGuard VPN, no port forwarding needed
+
 Security Features:
 - ✓ iptables firewall (default DROP policy)
+- ✓ Tailscale encrypted mesh network
 - ✓ NAT for camera network
 - ✓ Anti-spoofing rules
 - ✓ SYN flood protection
@@ -1492,6 +1514,7 @@ main() {
     install_dependencies
     install_docker
     install_docker_compose
+    install_tailscale
     create_pod_user
     setup_usb_storage        # Configure USB drive FIRST
     setup_directories
@@ -1519,6 +1542,7 @@ main() {
     print_header "Installation Complete!"
 
     echo -e "${GREEN}✓ Docker and Docker Compose installed${NC}"
+    echo -e "${GREEN}✓ Tailscale installed (connect with: sudo tailscale up)${NC}"
     echo -e "${GREEN}✓ Network configured (Dual-NIC: $WAN_INTERFACE, $LAN_INTERFACE)${NC}"
     echo -e "${GREEN}✓ DHCP server running${NC}"
     echo -e "${GREEN}✓ Firewall configured with router security${NC}"
@@ -1529,11 +1553,12 @@ main() {
     echo -e "${GREEN}✓ POD agent installed${NC}"
     echo ""
     echo -e "${YELLOW}Next Steps:${NC}"
-    echo "1. Connect cameras to $LAN_INTERFACE"
-    echo "2. Run camera discovery: $INSTALL_DIR/discover-cameras.sh"
-    echo "3. Configure .env: $INSTALL_DIR/docker/.env"
-    echo "4. Start services: cd $INSTALL_DIR/docker && docker compose up -d --remove-orphans"
-    echo "5. Access Frigate: http://$(hostname -I | awk '{print $1}'):5000"
+    echo "1. Connect Tailscale: sudo tailscale up"
+    echo "2. Connect cameras to $LAN_INTERFACE"
+    echo "3. Run camera discovery: $INSTALL_DIR/discover-cameras.sh"
+    echo "4. Configure .env: $INSTALL_DIR/docker/.env"
+    echo "5. Start services: cd $INSTALL_DIR/docker && docker compose up -d --remove-orphans"
+    echo "6. Access Frigate: http://$(hostname -I | awk '{print $1}'):5000"
     echo ""
     echo -e "${BLUE}📄 Full configuration details: $INSTALL_DIR/network-info.txt${NC}"
     echo ""
