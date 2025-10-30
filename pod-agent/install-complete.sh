@@ -1081,6 +1081,12 @@ configure_interactive() {
     read -p "Portal URL (e.g., https://platebridge.vercel.app): " PORTAL_URL
     read -p "Registration Token (from portal): " REG_TOKEN
 
+    echo ""
+    print_step "Device Naming"
+    echo "Give this POD a friendly name (e.g., 'North Gate POD', 'Main Entrance')"
+    read -p "Device Name: " DEVICE_NAME
+    DEVICE_NAME=${DEVICE_NAME:-"POD-$(hostname)"}
+
     # Get POD hardware info for registration
     # Use hostname as serial if hardware serial not available
     SERIAL=$(cat /sys/class/dmi/id/product_serial 2>/dev/null || hostname)
@@ -1102,7 +1108,8 @@ configure_interactive() {
             \"mac\": \"$MAC\",
             \"model\": \"$MODEL\",
             \"version\": \"1.0.0\",
-            \"registration_token\": \"$REG_TOKEN\"
+            \"registration_token\": \"$REG_TOKEN\",
+            \"device_name\": \"$DEVICE_NAME\"
         }")
 
     # Extract API key, POD ID, and Community ID from response

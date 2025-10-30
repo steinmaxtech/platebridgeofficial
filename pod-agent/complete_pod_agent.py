@@ -402,23 +402,43 @@ class CompletePodAgent:
             }
 
             # Try to get Tailscale IP first, fall back to public IP
+            tailscale_ip = None
+            tailscale_hostname = None
             public_ip = self.config.get('public_ip', 'auto')
+
+            # Try Tailscale first
+            try:
+                result = subprocess.run(['tailscale', 'ip', '-4'],
+                                      capture_output=True, text=True, timeout=2)
+                if result.returncode == 0 and result.stdout.strip():
+                    tailscale_ip = result.stdout.strip()
+                    logger.info(f"Tailscale IP detected: {tailscale_ip}")
+
+                    # Get Tailscale hostname
+                    try:
+                        hostname_result = subprocess.run(['tailscale', 'status', '--json'],
+                                                       capture_output=True, text=True, timeout=2)
+                        if hostname_result.returncode == 0:
+                            import json
+                            status_data = json.loads(hostname_result.stdout)
+                            tailscale_hostname = status_data.get('Self', {}).get('HostName', '')
+                    except:
+                        pass
+            except Exception as e:
+                logger.debug(f"Tailscale not available: {e}")
+
+            # Get public IP if auto
             if public_ip == 'auto':
                 try:
-                    # Try Tailscale first
-                    result = subprocess.run(['tailscale', 'ip', '-4'],
-                                          capture_output=True, text=True, timeout=2)
-                    if result.returncode == 0 and result.stdout.strip():
-                        public_ip = result.stdout.strip()
-                        logger.info(f"Using Tailscale IP: {public_ip}")
+                    if tailscale_ip:
+                        public_ip = tailscale_ip
                     else:
-                        # Fall back to public IP
                         public_ip = requests.get('https://api.ipify.org', timeout=3).text
                 except:
                     public_ip = 'unknown'
 
             stream_port = self.config.get('stream_port', 8000)
-            stream_url = f"https://{public_ip}:{stream_port}/stream"
+            stream_url = f"https://{tailscale_ip or public_ip}:{stream_port}/stream"
 
             cameras = []
             if self.config.get('camera_id') and self.config.get('camera_name'):
@@ -443,6 +463,12 @@ class CompletePodAgent:
                 'disk_usage': sys_stats['disk_usage'],
                 'temperature': sys_stats['temperature']
             }
+
+            # Add Tailscale info if available
+            if tailscale_ip:
+                payload['tailscale_ip'] = tailscale_ip
+            if tailscale_hostname:
+                payload['tailscale_hostname'] = tailscale_hostname
 
             response = requests.post(url, headers=headers, json=payload, timeout=5)
 

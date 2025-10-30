@@ -278,6 +278,21 @@ export default function PodDetailPage() {
                 <span className="text-sm text-muted-foreground">IP Address:</span>
                 <span className="font-medium">{pod.ip_address || 'N/A'}</span>
               </div>
+              {pod.tailscale_ip && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Tailscale IP:</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="font-mono">{pod.tailscale_ip}</Badge>
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  </div>
+                </div>
+              )}
+              {pod.tailscale_hostname && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Tailscale Name:</span>
+                  <span className="font-medium font-mono">{pod.tailscale_hostname}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">MAC:</span>
                 <span className="font-medium">{pod.mac_address || 'N/A'}</span>

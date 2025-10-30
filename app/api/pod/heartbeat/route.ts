@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
     const {
       pod_id,
       ip_address,
+      tailscale_ip,
+      tailscale_hostname,
       firmware_version,
       status = 'online',
       cameras = []
@@ -104,15 +106,25 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingPod) {
+      const updateData: any = {
+        last_heartbeat: new Date().toISOString(),
+        status,
+        ip_address,
+        firmware_version,
+        updated_at: new Date().toISOString()
+      };
+
+      // Add Tailscale data if provided
+      if (tailscale_ip) {
+        updateData.tailscale_ip = tailscale_ip;
+      }
+      if (tailscale_hostname) {
+        updateData.tailscale_hostname = tailscale_hostname;
+      }
+
       await supabaseServer
         .from('pods')
-        .update({
-          last_heartbeat: new Date().toISOString(),
-          status,
-          ip_address,
-          firmware_version,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', pod_id);
     } else {
       const dummyHash = await hashApiKey(`dummy-${pod_id}-${Date.now()}`);
@@ -136,8 +148,10 @@ export async function POST(request: NextRequest) {
 
       if (!camera_id || !name) continue;
 
-      const streamUrl = ip_address
-        ? `https://${ip_address}:8000/stream`
+      // Prefer Tailscale IP for secure connectivity, fallback to public IP
+      const connectIp = tailscale_ip || ip_address;
+      const streamUrl = connectIp
+        ? `https://${connectIp}:8000/stream`
         : `https://pod-${pod_id}.local:8000/stream`;
 
       const { data: existingCamera } = await supabaseServer

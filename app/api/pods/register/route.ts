@@ -5,7 +5,7 @@ import crypto from 'crypto';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { serial, mac, model, version, registration_token } = body;
+    const { serial, mac, model, version, registration_token, device_name } = body;
 
     if (!serial || !mac) {
       return NextResponse.json(
@@ -99,16 +99,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Generate new API key
-    apiKey = `pb_${crypto.randomBytes(32).toString('hex')}`;
+    // Generate new API key with pbk_ prefix for pod keys
+    apiKey = `pbk_${crypto.randomBytes(32).toString('hex')}`;
     const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
 
-    // Create new POD
+    // Create new POD with custom name or default
+    const podName = device_name || `POD-${serial}`;
+
     const { data: newPod, error: podError } = await supabase
       .from('pods')
       .insert({
         site_id: site_id,
-        name: `POD-${serial}`,
+        name: podName,
         serial_number: serial,
         mac_address: mac,
         hardware_model: model || 'PB-M1',
@@ -129,6 +131,17 @@ export async function POST(request: NextRequest) {
     }
 
     podId = newPod.id;
+
+    // Create API key entry for heartbeat authentication
+    await supabase
+      .from('pod_api_keys')
+      .insert({
+        pod_id: podId,
+        community_id: community_id,
+        key_hash: keyHash,
+        name: `${podName} API Key`,
+        last_used_at: new Date().toISOString(),
+      });
 
     // Mark token as used (single-use)
     await supabase
