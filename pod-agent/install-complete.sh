@@ -945,10 +945,10 @@ services:
       context: .
       dockerfile: Dockerfile
     image: platebridge-pod-agent:latest
-    container_name: platebridge-agent
+    container_name: platebridge-pod
     restart: unless-stopped
     volumes:
-      - $INSTALL_DIR/config/config.yaml:/app/config.yaml:ro
+      - $INSTALL_DIR/docker/config.yaml:/app/config.yaml:ro
       - $INSTALL_DIR/logs:/logs
       - /media/frigate/recordings:/recordings  # USB storage
     environment:
