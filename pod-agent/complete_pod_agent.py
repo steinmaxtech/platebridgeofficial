@@ -401,10 +401,19 @@ class CompletePodAgent:
                 'Content-Type': 'application/json'
             }
 
+            # Try to get Tailscale IP first, fall back to public IP
             public_ip = self.config.get('public_ip', 'auto')
             if public_ip == 'auto':
                 try:
-                    public_ip = requests.get('https://api.ipify.org', timeout=3).text
+                    # Try Tailscale first
+                    result = subprocess.run(['tailscale', 'ip', '-4'],
+                                          capture_output=True, text=True, timeout=2)
+                    if result.returncode == 0 and result.stdout.strip():
+                        public_ip = result.stdout.strip()
+                        logger.info(f"Using Tailscale IP: {public_ip}")
+                    else:
+                        # Fall back to public IP
+                        public_ip = requests.get('https://api.ipify.org', timeout=3).text
                 except:
                     public_ip = 'unknown'
 

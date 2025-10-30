@@ -33,6 +33,40 @@ check_docker() {
     echo "✓ Docker found"
 }
 
+install_tailscale() {
+    echo ""
+    echo "======================================"
+    echo "Tailscale Installation"
+    echo "======================================"
+    echo ""
+
+    if command -v tailscale &> /dev/null; then
+        echo "✓ Tailscale already installed"
+        return 0
+    fi
+
+    read -p "Install Tailscale for secure connectivity? (recommended) [Y/n]: " INSTALL_TS
+    INSTALL_TS=${INSTALL_TS:-Y}
+
+    if [[ ! $INSTALL_TS =~ ^[Yy]$ ]]; then
+        echo "⚠ Skipping Tailscale - pod will use public internet"
+        return 0
+    fi
+
+    echo "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh
+
+    echo ""
+    echo "✓ Tailscale installed"
+    echo ""
+    echo "To connect this pod to your Tailscale network:"
+    echo "  1. Run: sudo tailscale up"
+    echo "  2. Click the link to authenticate"
+    echo "  3. Your pod will get a secure Tailscale IP (100.x.x.x)"
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
 
 fetch_pod_info() {
     echo ""
@@ -183,6 +217,7 @@ build_and_start() {
 
 main() {
     check_docker
+    install_tailscale
 
     if ! fetch_pod_info; then
         echo ""

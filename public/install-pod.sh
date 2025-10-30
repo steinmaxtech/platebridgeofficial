@@ -47,6 +47,40 @@ check_pip() {
     fi
 }
 
+install_tailscale() {
+    echo ""
+    echo "======================================"
+    echo "Tailscale Installation"
+    echo "======================================"
+    echo ""
+
+    if command -v tailscale &> /dev/null; then
+        echo "✓ Tailscale already installed"
+        return 0
+    fi
+
+    read -p "Install Tailscale for secure connectivity? (recommended) [Y/n]: " INSTALL_TS
+    INSTALL_TS=${INSTALL_TS:-Y}
+
+    if [[ ! $INSTALL_TS =~ ^[Yy]$ ]]; then
+        echo "⚠ Skipping Tailscale - pod will use public internet"
+        return 0
+    fi
+
+    echo "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh
+
+    echo ""
+    echo "✓ Tailscale installed"
+    echo ""
+    echo "To connect this pod to your Tailscale network:"
+    echo "  1. Run: sudo tailscale up"
+    echo "  2. Click the link to authenticate"
+    echo "  3. Your pod will get a secure Tailscale IP (100.x.x.x)"
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
 fetch_pod_info() {
     echo ""
     echo "Fetching POD configuration from portal..."
@@ -209,6 +243,17 @@ class PlateBridgeAgent:
                 'Content-Type': 'application/json'
             }
 
+            # Try to get Tailscale IP first, fall back to public IP
+            ip_address = None
+            try:
+                result = subprocess.run(['tailscale', 'ip', '-4'],
+                                      capture_output=True, text=True, timeout=2)
+                if result.returncode == 0:
+                    ip_address = result.stdout.strip()
+                    logger.info(f"Using Tailscale IP: {ip_address}")
+            except:
+                pass
+
             cameras = []
             if self.config.get('cameras'):
                 for cam in self.config['cameras']:
@@ -225,6 +270,9 @@ class PlateBridgeAgent:
                 'status': 'online',
                 'cameras': cameras
             }
+
+            if ip_address:
+                payload['ip_address'] = ip_address
 
             requests.post(url, headers=headers, json=payload, timeout=5)
         except Exception as e:
@@ -391,6 +439,7 @@ EOF
 main() {
     check_python
     check_pip
+    install_tailscale
 
     if ! fetch_pod_info; then
         echo ""
