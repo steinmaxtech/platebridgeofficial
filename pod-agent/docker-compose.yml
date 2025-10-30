@@ -1,6 +1,30 @@
 version: '3.8'
 
 services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: platebridge-tailscale
+    hostname: platebridge-pod
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    volumes:
+      - /var/lib/tailscale:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SOCKET=/var/run/tailscale/tailscaled.sock
+      - TS_EXTRA_ARGS=--advertise-tags=tag:pod
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   pod-agent:
     build:
       context: .
@@ -9,11 +33,14 @@ services:
     container_name: platebridge-pod
     restart: unless-stopped
     network_mode: host
+    depends_on:
+      - tailscale
     volumes:
       - /opt/platebridge/config.yaml:/app/config.yaml:ro
       - /opt/platebridge/recordings:/recordings
       - /opt/platebridge/logs:/logs
       - /tmp/hls_output:/tmp/hls_output
+      - /var/run/tailscale:/var/run/tailscale:ro
     environment:
       - TZ=UTC
     logging:

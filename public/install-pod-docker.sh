@@ -33,38 +33,36 @@ check_docker() {
     echo "✓ Docker found"
 }
 
-install_tailscale() {
+configure_tailscale() {
     echo ""
     echo "======================================"
-    echo "Tailscale Installation"
+    echo "Tailscale Configuration"
     echo "======================================"
     echo ""
 
-    if command -v tailscale &> /dev/null; then
-        echo "✓ Tailscale already installed"
-        return 0
-    fi
+    read -p "Enable Tailscale for secure connectivity? (recommended) [Y/n]: " ENABLE_TS
+    ENABLE_TS=${ENABLE_TS:-Y}
 
-    read -p "Install Tailscale for secure connectivity? (recommended) [Y/n]: " INSTALL_TS
-    INSTALL_TS=${INSTALL_TS:-Y}
-
-    if [[ ! $INSTALL_TS =~ ^[Yy]$ ]]; then
+    if [[ ! $ENABLE_TS =~ ^[Yy]$ ]]; then
         echo "⚠ Skipping Tailscale - pod will use public internet"
+        TS_AUTHKEY=""
         return 0
     fi
 
-    echo "Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
+    echo ""
+    echo "To get a Tailscale auth key:"
+    echo "  1. Visit: https://login.tailscale.com/admin/settings/keys"
+    echo "  2. Generate a new auth key"
+    echo "  3. Optional: Set it to 'Reusable' and add tag 'pod'"
+    echo ""
+    read -p "Enter Tailscale auth key (or press Enter to skip): " TS_AUTHKEY
 
-    echo ""
-    echo "✓ Tailscale installed"
-    echo ""
-    echo "To connect this pod to your Tailscale network:"
-    echo "  1. Run: sudo tailscale up"
-    echo "  2. Click the link to authenticate"
-    echo "  3. Your pod will get a secure Tailscale IP (100.x.x.x)"
-    echo ""
-    read -p "Press Enter to continue..."
+    if [ -z "$TS_AUTHKEY" ]; then
+        echo "⚠ No auth key provided - you'll need to authenticate manually"
+        echo "   After install, run: docker exec platebridge-tailscale tailscale up"
+    else
+        echo "✓ Tailscale auth key configured"
+    fi
 }
 
 
@@ -166,6 +164,15 @@ create_config() {
     sudo mkdir -p /opt/platebridge/recordings
     sudo mkdir -p /opt/platebridge/logs
     sudo mkdir -p /tmp/hls_output
+    sudo mkdir -p /var/lib/tailscale
+
+    # Create .env file for docker-compose
+    if [ -n "$TS_AUTHKEY" ]; then
+        sudo tee /opt/platebridge/.env > /dev/null << ENV_EOF
+TS_AUTHKEY=$TS_AUTHKEY
+ENV_EOF
+        sudo chmod 600 /opt/platebridge/.env
+    fi
 
     sudo tee /opt/platebridge/config.yaml > /dev/null << EOF
 # PlateBridge Pod Configuration
@@ -198,26 +205,45 @@ EOF
 
 build_and_start() {
     echo ""
-    echo "Building and starting Docker container..."
+    echo "Building and starting Docker containers..."
 
     cd "$INSTALL_DIR"
 
-    # Stop existing container if running
+    # Copy .env file if it exists
+    if [ -f /opt/platebridge/.env ]; then
+        cp /opt/platebridge/.env .
+    fi
+
+    # Stop existing containers if running
     docker stop platebridge-pod 2>/dev/null || true
     docker rm platebridge-pod 2>/dev/null || true
+    docker stop platebridge-tailscale 2>/dev/null || true
+    docker rm platebridge-tailscale 2>/dev/null || true
 
     # Build the image
     docker build -t platebridge-pod-agent:latest .
 
-    # Start the container
+    # Start the containers
     docker compose up -d
 
-    echo "✓ Container started"
+    echo "✓ Containers started"
+
+    # Check Tailscale status
+    if [ -n "$TS_AUTHKEY" ]; then
+        echo ""
+        echo "Waiting for Tailscale to connect..."
+        sleep 5
+        docker exec platebridge-tailscale tailscale status || true
+    elif docker ps | grep -q platebridge-tailscale; then
+        echo ""
+        echo "To connect Tailscale manually, run:"
+        echo "  docker exec platebridge-tailscale tailscale up"
+    fi
 }
 
 main() {
     check_docker
-    install_tailscale
+    configure_tailscale
 
     if ! fetch_pod_info; then
         echo ""
@@ -240,11 +266,14 @@ main() {
     echo "Logs: docker logs -f platebridge-pod"
     echo ""
     echo "Useful commands:"
-    echo "  View logs:     docker logs -f platebridge-pod"
-    echo "  Stop POD:      docker stop platebridge-pod"
-    echo "  Start POD:     docker start platebridge-pod"
-    echo "  Restart POD:   docker restart platebridge-pod"
-    echo "  Rebuild:       cd $INSTALL_DIR && docker compose up -d --build"
+    echo "  View pod logs:       docker logs -f platebridge-pod"
+    echo "  View Tailscale logs: docker logs -f platebridge-tailscale"
+    echo "  Tailscale status:    docker exec platebridge-tailscale tailscale status"
+    echo "  Tailscale IP:        docker exec platebridge-tailscale tailscale ip -4"
+    echo "  Stop POD:            docker compose -f $INSTALL_DIR/docker-compose.yml stop"
+    echo "  Start POD:           docker compose -f $INSTALL_DIR/docker-compose.yml start"
+    echo "  Restart POD:         docker compose -f $INSTALL_DIR/docker-compose.yml restart"
+    echo "  Rebuild:             cd $INSTALL_DIR && docker compose up -d --build"
     echo ""
 }
 
