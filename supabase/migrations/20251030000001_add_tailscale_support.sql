@@ -17,6 +17,7 @@
 -- Add Tailscale columns to pods table
 ALTER TABLE pods ADD COLUMN IF NOT EXISTS tailscale_ip TEXT;
 ALTER TABLE pods ADD COLUMN IF NOT EXISTS tailscale_hostname TEXT;
+ALTER TABLE pods ADD COLUMN IF NOT EXISTS tailscale_funnel_url TEXT;
 
 -- Add index for quick Tailscale IP lookups
 CREATE INDEX IF NOT EXISTS idx_pods_tailscale_ip ON pods(tailscale_ip);
@@ -24,3 +25,4 @@ CREATE INDEX IF NOT EXISTS idx_pods_tailscale_ip ON pods(tailscale_ip);
 -- Add comment for documentation
 COMMENT ON COLUMN pods.tailscale_ip IS 'Tailscale mesh network IP (100.x.x.x) for secure pod connectivity';
 COMMENT ON COLUMN pods.tailscale_hostname IS 'Tailscale device hostname for DNS resolution';
+COMMENT ON COLUMN pods.tailscale_funnel_url IS 'Public Tailscale Funnel URL (e.g., https://pod.tail-abc.ts.net) for portal access';

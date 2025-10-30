@@ -60,6 +60,8 @@ export async function GET(
         id,
         name,
         ip_address,
+        tailscale_funnel_url,
+        tailscale_ip,
         stream_token_secret,
         sites!inner (
           id,
@@ -90,7 +92,14 @@ export async function GET(
     const secret = pod.stream_token_secret || process.env.POD_STREAM_SECRET || 'default-secret';
     const streamToken = await generateStreamToken(tokenPayload, secret);
 
-    const podInternalUrl = `http://${pod.ip_address || '127.0.0.1'}:8000/stream?token=${encodeURIComponent(streamToken)}`;
+    // Prefer Tailscale Funnel URL (works from Vercel), fallback to Tailscale IP, then public IP
+    let podInternalUrl;
+    if (pod.tailscale_funnel_url) {
+      podInternalUrl = `${pod.tailscale_funnel_url}/stream?token=${encodeURIComponent(streamToken)}`;
+    } else {
+      const connectIp = pod.tailscale_ip || pod.ip_address || '127.0.0.1';
+      podInternalUrl = `http://${connectIp}:8000/stream?token=${encodeURIComponent(streamToken)}`;
+    }
 
     const podResponse = await fetch(podInternalUrl, {
       method: 'GET',

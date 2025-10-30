@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       ip_address,
       tailscale_ip,
       tailscale_hostname,
+      tailscale_funnel_url,
       firmware_version,
       status = 'online',
       cameras = []
@@ -121,6 +122,9 @@ export async function POST(request: NextRequest) {
       if (tailscale_hostname) {
         updateData.tailscale_hostname = tailscale_hostname;
       }
+      if (tailscale_funnel_url) {
+        updateData.tailscale_funnel_url = tailscale_funnel_url;
+      }
 
       await supabaseServer
         .from('pods')
@@ -148,11 +152,16 @@ export async function POST(request: NextRequest) {
 
       if (!camera_id || !name) continue;
 
-      // Prefer Tailscale IP for secure connectivity, fallback to public IP
-      const connectIp = tailscale_ip || ip_address;
-      const streamUrl = connectIp
-        ? `https://${connectIp}:8000/stream`
-        : `https://pod-${pod_id}.local:8000/stream`;
+      // Prefer Tailscale Funnel URL, then Tailscale IP, then public IP
+      let streamUrl;
+      if (tailscale_funnel_url) {
+        streamUrl = `${tailscale_funnel_url}/stream`;
+      } else {
+        const connectIp = tailscale_ip || ip_address;
+        streamUrl = connectIp
+          ? `https://${connectIp}:8000/stream`
+          : `https://pod-${pod_id}.local:8000/stream`;
+      }
 
       const { data: existingCamera } = await supabaseServer
         .from('cameras')

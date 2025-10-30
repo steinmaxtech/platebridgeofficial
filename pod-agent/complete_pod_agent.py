@@ -407,6 +407,7 @@ class CompletePodAgent:
             public_ip = self.config.get('public_ip', 'auto')
 
             # Try Tailscale first
+            tailscale_funnel_url = None
             try:
                 result = subprocess.run(['tailscale', 'ip', '-4'],
                                       capture_output=True, text=True, timeout=2)
@@ -414,7 +415,7 @@ class CompletePodAgent:
                     tailscale_ip = result.stdout.strip()
                     logger.info(f"Tailscale IP detected: {tailscale_ip}")
 
-                    # Get Tailscale hostname
+                    # Get Tailscale hostname and check for funnel
                     try:
                         hostname_result = subprocess.run(['tailscale', 'status', '--json'],
                                                        capture_output=True, text=True, timeout=2)
@@ -422,6 +423,12 @@ class CompletePodAgent:
                             import json
                             status_data = json.loads(hostname_result.stdout)
                             tailscale_hostname = status_data.get('Self', {}).get('HostName', '')
+
+                            # Build Tailscale Funnel URL
+                            tailnet = status_data.get('CurrentTailnet', {}).get('Name', '')
+                            if tailscale_hostname and tailnet:
+                                tailscale_funnel_url = f"https://{tailscale_hostname}.{tailnet}.ts.net"
+                                logger.info(f"Tailscale Funnel URL: {tailscale_funnel_url}")
                     except:
                         pass
             except Exception as e:
@@ -469,6 +476,8 @@ class CompletePodAgent:
                 payload['tailscale_ip'] = tailscale_ip
             if tailscale_hostname:
                 payload['tailscale_hostname'] = tailscale_hostname
+            if tailscale_funnel_url:
+                payload['tailscale_funnel_url'] = tailscale_funnel_url
 
             response = requests.post(url, headers=headers, json=payload, timeout=5)
 
