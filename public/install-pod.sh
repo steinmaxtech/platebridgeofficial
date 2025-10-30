@@ -204,10 +204,31 @@ class PlateBridgeAgent:
     async def send_heartbeat(self):
         try:
             url = f"{self.config['portal_url']}/api/pod/heartbeat"
-            headers = {'Authorization': f"Bearer {self.config['api_key']}"}
-            requests.post(url, headers=headers, timeout=5)
-        except:
-            pass
+            headers = {
+                'Authorization': f"Bearer {self.config['api_key']}",
+                'Content-Type': 'application/json'
+            }
+
+            cameras = []
+            if self.config.get('cameras'):
+                for cam in self.config['cameras']:
+                    cameras.append({
+                        'camera_id': cam.get('id', cam.get('name', 'default')),
+                        'name': cam.get('name', 'Camera'),
+                        'rtsp_url': cam.get('rtsp_url', ''),
+                        'position': cam.get('position', 'entrance')
+                    })
+
+            payload = {
+                'pod_id': self.config['pod_id'],
+                'firmware_version': '1.0.0',
+                'status': 'online',
+                'cameras': cameras
+            }
+
+            requests.post(url, headers=headers, json=payload, timeout=5)
+        except Exception as e:
+            logger.error(f"Heartbeat failed: {e}")
 
     async def run(self):
         logger.info("=" * 60)
@@ -277,6 +298,22 @@ configure_frigate() {
     else
         MQTT_PASS=""
     fi
+
+    echo ""
+    echo "======================================"
+    echo "Camera Configuration"
+    echo "======================================"
+    echo ""
+    read -p "Camera Name [Front Gate]: " CAMERA_NAME
+    CAMERA_NAME=${CAMERA_NAME:-Front Gate}
+
+    read -p "Camera RTSP URL (e.g., rtsp://192.168.1.100:554/stream): " CAMERA_RTSP
+    CAMERA_RTSP=${CAMERA_RTSP:-}
+
+    read -p "Camera Position [entrance]: " CAMERA_POSITION
+    CAMERA_POSITION=${CAMERA_POSITION:-entrance}
+
+    CAMERA_ID=$(echo -n "${CAMERA_NAME}${CAMERA_RTSP}" | md5sum | cut -d' ' -f1 | head -c 8)
 }
 
 create_config() {
@@ -300,6 +337,12 @@ frigate_mqtt_topic: "frigate/events"
 
 min_confidence: 0.7
 log_level: "INFO"
+
+cameras:
+  - id: "$CAMERA_ID"
+    name: "$CAMERA_NAME"
+    rtsp_url: "$CAMERA_RTSP"
+    position: "$CAMERA_POSITION"
 EOF
 
     echo "✓ Configuration saved"

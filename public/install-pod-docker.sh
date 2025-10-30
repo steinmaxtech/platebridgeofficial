@@ -86,6 +86,22 @@ configure_frigate() {
     else
         MQTT_PASS=""
     fi
+
+    echo ""
+    echo "======================================"
+    echo "Camera Configuration"
+    echo "======================================"
+    echo ""
+    read -p "Camera Name [Front Gate]: " CAMERA_NAME
+    CAMERA_NAME=${CAMERA_NAME:-Front Gate}
+
+    read -p "Camera RTSP URL (e.g., rtsp://192.168.1.100:554/stream): " CAMERA_RTSP
+    CAMERA_RTSP=${CAMERA_RTSP:-}
+
+    read -p "Camera Position [entrance]: " CAMERA_POSITION
+    CAMERA_POSITION=${CAMERA_POSITION:-entrance}
+
+    CAMERA_ID=$(echo -n "${CAMERA_NAME}${CAMERA_RTSP}" | md5sum | cut -d' ' -f1 | head -c 8)
 }
 
 clone_repository() {
@@ -135,7 +151,11 @@ frigate_mqtt_topic: "frigate/events"
 min_confidence: 0.7
 log_level: "INFO"
 
-cameras: []
+cameras:
+  - id: "$CAMERA_ID"
+    name: "$CAMERA_NAME"
+    rtsp_url: "$CAMERA_RTSP"
+    position: "$CAMERA_POSITION"
 EOF
 
     sudo chmod 644 /opt/platebridge/config.yaml
