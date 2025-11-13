@@ -1,31 +1,50 @@
-# 🚀 PlateBridge POD - Quick Reference Cheat Sheet
+# POD Troubleshooting Cheat Sheet
 
-## 📥 Get Started (30 seconds)
-
-```bash
-# Clone repo
-git clone https://github.com/your-org/platebridge.git
-cd platebridge/pod-agent
-chmod +x *.sh
-```
+Quick reference for diagnosing and fixing common POD issues.
 
 ---
 
-## 🔧 Setup Commands
+## 🚨 POD Not Checking In?
 
-### **Automated Setup**
+### Quick Diagnostic
+
 ```bash
-sudo ./setup.sh
+# Run comprehensive diagnostics
+sudo /opt/platebridge/pod-agent/utilities/diagnose-pod-checkin.sh
 ```
 
-### **Network Configuration (Dual-NIC)**
-```bash
-sudo ./network-config.sh
+This checks:
+- ✅ Container running
+- ✅ Environment variables set
+- ✅ Network connectivity
+- ✅ Portal reachability
+- ✅ API key validity
+- ✅ Tailscale status
+
+---
+
+## Common Issues & Fixes
+
+### Issue 1: API Key Invalid (401 Unauthorized)
+
+**Symptoms:**
+```
+Error: 401 Unauthorized
 ```
 
-### **Camera Discovery**
+**Fix:**
 ```bash
-sudo ./discover-cameras.sh
+# 1. Regenerate API key in portal
+#    Go to: https://platebridge.vercel.app/pods
+#    Click your POD → "Regenerate API Key"
+
+# 2. Update .env file
+sudo nano /opt/platebridge/docker/.env
+# Change: POD_API_KEY=pbk_your_new_key_here
+
+# 3. Restart
+cd /opt/platebridge/docker
+sudo docker compose restart
 ```
 
 ---
